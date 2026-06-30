@@ -22,7 +22,22 @@ async function getAdmin() {
   return supabaseAdmin;
 }
 
-async function scanOneSource(source: SourceRow, knownHashes: Set<string>) {
+interface LearningExamples {
+  approved: { title: string; summary: string; source_name: string }[];
+  rejected: { title: string; summary: string; source_name: string }[];
+}
+
+function renderExamples(ex: LearningExamples): string {
+  if (!ex.approved.length && !ex.rejected.length) return "";
+  const fmt = (arr: LearningExamples["approved"]) =>
+    arr.map((d) => `- [${d.source_name}] ${d.title} — ${d.summary.slice(0, 140)}`).join("\n");
+  let out = "\n\nAPRENDIZAGEM (decisões anteriores da editora Eliana — usa-as como referência forte do que é/não é relevante):\n";
+  if (ex.approved.length) out += `\n✅ APROVADAS (exemplos do que QUERES detetar):\n${fmt(ex.approved)}\n`;
+  if (ex.rejected.length) out += `\n❌ REJEITADAS (exemplos do que NÃO deves detetar — penaliza fortemente itens semelhantes):\n${fmt(ex.rejected)}\n`;
+  return out;
+}
+
+async function scanOneSource(source: SourceRow, knownHashes: Set<string>, examples: LearningExamples) {
   const deep = await firecrawlDeepScrape(source.url, { maxPages: 1, perPageChars: 2500 });
   const content = deep.markdown.slice(0, 14000);
   if (!content) return { created: 0, error: null as string | null };
