@@ -10,6 +10,7 @@ interface DetectionInput {
   summary: string;
   source_name: string;
   source_url: string | null;
+  published_at?: string | null;
 }
 
 interface ChromeInput {
@@ -59,6 +60,7 @@ Redige a newsletter.`,
       lead: output.lead,
       bodyHtml,
       sourceUrl: d.source_url ?? undefined,
+      publishedAt: d.published_at ?? undefined,
     },
     { logoUrl: chrome.logo_url, disclaimerHtml: chrome.disclaimer_html },
   );
