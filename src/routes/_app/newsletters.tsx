@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Download, Eye } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/newsletters")({
+export const Route = createFileRoute("/_app/newsletters")({
   head: () => ({ meta: [{ title: "Newsletters · SEPRI" }] }),
   component: NewslettersPage,
 });

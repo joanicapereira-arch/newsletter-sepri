@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Trash2, Plus, Save } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/sources")({
+export const Route = createFileRoute("/_app/sources")({
   head: () => ({ meta: [{ title: "Fontes · SEPRI" }] }),
   component: SourcesPage,
 });
