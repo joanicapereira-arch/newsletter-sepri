@@ -3,7 +3,7 @@ import { generateText, Output } from "ai";
 import { z } from "zod";
 import { createHash } from "crypto";
 import { createLovableAi, requireLovableApiKey } from "./ai-gateway.server";
-import { firecrawlScrape } from "./firecrawl.server";
+import { firecrawlDeepScrape } from "./firecrawl.server";
 import { buildApprovalUrls } from "./tokens.server";
 
 const MODEL = "google/gemini-3-flash-preview";
@@ -21,13 +21,18 @@ async function getAdmin() {
   return supabaseAdmin;
 }
 
-async function scanOneSource(source: SourceRow, recentHashes: Set<string>) {
-  const scrape = await firecrawlScrape(source.url);
-  const content = (scrape?.markdown ?? "").slice(0, 12000);
+async function scanOneSource(source: SourceRow, knownHashes: Set<string>) {
+  const deep = await firecrawlDeepScrape(source.url, { maxPages: 6, perPageChars: 4000 });
+  const content = deep.markdown.slice(0, 30000);
   if (!content) return { created: 0, error: null as string | null };
 
   const apiKey = requireLovableApiKey();
   const ai = createLovableAi(apiKey);
+
+  // Janela temporal: últimos 90 dias
+  const today = new Date();
+  const cutoff = new Date(today.getTime() - 90 * 86400_000);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
 
   const { output } = await generateText({
     model: ai(MODEL),
@@ -38,29 +43,33 @@ async function scanOneSource(source: SourceRow, recentHashes: Set<string>) {
             title: z.string(),
             summary: z.string(),
             source_url: z.string().nullable(),
+            published_at: z.string().nullable(),
             relevance_score: z.number().min(0).max(100),
           }),
         ),
       }),
     }),
     system: `És um analista que monitoriza legislação e técnica para a SEPRI Group (medicina e segurança no trabalho em Portugal).
-Recebes conteúdo bruto de uma fonte e devolves SÓ as novidades genuinamente RELEVANTES para os temas SEPRI:
+Recebes conteúdo bruto de uma fonte (pode incluir várias páginas concatenadas) e devolves SÓ as novidades genuinamente RELEVANTES para os temas SEPRI:
 medicina do trabalho, segurança no trabalho (SST), riscos psicossociais, autoproteção de edifícios e incêndios,
 legionella, formação obrigatória, Lei 102/2009, Código do Trabalho, exames a trabalhadores expostos,
 campanhas EU-OSHA, alterações climáticas e trabalho. Para a Ordem dos Psicólogos, APENAS Psicologia do Trabalho.
 Ignora notícias institucionais genéricas, eventos sem impacto técnico, e tudo que seja off-topic.
-Devolve no máximo 5 itens. Se não houver nada relevante, devolve items: [].
+JANELA TEMPORAL: considera APENAS itens publicados entre ${fmt(cutoff)} e ${fmt(today)} (últimos 90 dias). Se a data não estiver visível mas o contexto indicar que é recente (ex: ainda em vigor, agenda futura), inclui; se claramente for antigo, ignora.
+Devolve até 15 itens. Se não houver nada relevante, devolve items: [].
+published_at: data ISO (YYYY-MM-DD) se conseguires inferir, senão null.
 relevance_score: 0-100 (100 = altamente crítico).`,
     prompt: `Fonte: ${source.name}
-URL: ${source.url}
+URL raiz: ${source.url}
 Palavras-chave de interesse: ${source.keywords.join(", ")}
+Páginas analisadas: ${deep.pages}
 
-Conteúdo (markdown):
+Conteúdo (markdown, várias páginas):
 ---
 ${content}
 ---
 
-Extrai novidades relevantes.`,
+Extrai novidades relevantes dos últimos 90 dias.`,
   });
 
   const items = output.items.filter((i) => i.relevance_score >= 40);
@@ -71,7 +80,7 @@ Extrai novidades relevantes.`,
       .update(`${source.id}:${item.title.toLowerCase().trim()}`)
       .digest("hex")
       .slice(0, 32);
-    if (recentHashes.has(hash)) continue;
+    if (knownHashes.has(hash)) continue;
     const { error } = await admin.from("detections").insert({
       source_id: source.id,
       source_name: source.name,
@@ -81,7 +90,10 @@ Extrai novidades relevantes.`,
       content_hash: hash,
       relevance_score: item.relevance_score,
     });
-    if (!error) created++;
+    if (!error) {
+      created++;
+      knownHashes.add(hash);
+    }
   }
   return { created, error: null };
 }
@@ -162,11 +174,13 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
     .from("sources")
     .select("id,name,url,description,keywords")
     .eq("active", true);
-  const { data: recent } = await admin
+  // Dedupe contra TODO o histórico de deteções (qualquer estado, qualquer data)
+  // — garante que itens já vistos, aprovados, rejeitados ou já usados em
+  // newsletters não voltam a gerar alerta.
+  const { data: known } = await admin
     .from("detections")
-    .select("content_hash")
-    .gte("detected_at", new Date(Date.now() - 60 * 86400_000).toISOString());
-  const recentHashes = new Set((recent ?? []).map((r) => r.content_hash));
+    .select("content_hash");
+  const knownHashes = new Set((known ?? []).map((r) => r.content_hash));
 
   const { data: config } = await admin
     .from("app_config")
@@ -180,7 +194,7 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
   let scanned = 0;
   for (const src of (sources ?? []) as SourceRow[]) {
     try {
-      const res = await scanOneSource(src, recentHashes);
+      const res = await scanOneSource(src, knownHashes);
       totalCreated += res.created;
       scanned++;
     } catch (e) {
