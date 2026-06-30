@@ -225,9 +225,7 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
     .gte("detected_at", new Date(Date.now() - 5 * 60_000).toISOString())
     .order("relevance_score", { ascending: false })
     .limit(20);
-  for (const d of newPending ?? []) {
-    await sendAlertEmail(alertEmail, d, origin);
-  }
+  await Promise.all((newPending ?? []).map((d) => sendAlertEmail(alertEmail, d, origin)));
 
   await admin
     .from("scan_runs")
