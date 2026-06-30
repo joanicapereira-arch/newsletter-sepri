@@ -1,19 +1,7 @@
-import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Inbox, FileText, Globe, History, Settings, LogOut } from "lucide-react";
+import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { Inbox, FileText, Globe, History, Settings } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated")({
-  ssr: false,
-  beforeLoad: async () => {
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) {
-      const { redirect } = await import("@tanstack/react-router");
-      throw redirect({ to: "/auth" });
-    }
-    return { user: data.user };
-  },
+export const Route = createFileRoute("/_app")({
   component: Layout,
 });
 
@@ -26,18 +14,7 @@ const navItems = [
 ] as const;
 
 function Layout() {
-  const navigate = useNavigate();
   const { location } = useRouterState();
-  const [email, setEmail] = useState<string | null>(null);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null));
-  }, []);
-
-  async function signOut() {
-    await supabase.auth.signOut();
-    navigate({ to: "/auth" });
-  }
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -73,12 +50,6 @@ function Layout() {
             );
           })}
         </nav>
-        <div className="p-3 border-t border-sidebar-border">
-          {email && <div className="text-xs text-muted-foreground px-2 mb-2 truncate">{email}</div>}
-          <Button variant="ghost" size="sm" className="w-full justify-start" onClick={signOut}>
-            <LogOut className="w-4 h-4 mr-2" /> Sair
-          </Button>
-        </div>
       </aside>
       <main className="flex-1 overflow-auto">
         <Outlet />

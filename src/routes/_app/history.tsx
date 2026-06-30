@@ -4,7 +4,7 @@ import { listScanRuns } from "@/lib/detections.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-export const Route = createFileRoute("/_authenticated/history")({
+export const Route = createFileRoute("/_app/history")({
   head: () => ({ meta: [{ title: "Histórico · SEPRI" }] }),
   component: HistoryPage,
 });

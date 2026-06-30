@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Check, X, ExternalLink, RefreshCw, Loader2 } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/inbox")({
+export const Route = createFileRoute("/_app/inbox")({
   head: () => ({ meta: [{ title: "Caixa de entrada · SEPRI" }] }),
   component: InboxPage,
 });
