@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppSourcesRouteImport } from './routes/_app/sources'
 import { Route as AppNewslettersRouteImport } from './routes/_app/newsletters'
@@ -19,35 +20,39 @@ import { Route as ApiPublicRejectRouteImport } from './routes/api/public/reject'
 import { Route as ApiPublicCronScanRouteImport } from './routes/api/public/cron-scan'
 import { Route as ApiPublicApproveRouteImport } from './routes/api/public/approve'
 
+const AppRouteRoute = AppRouteRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppSourcesRoute = AppSourcesRouteImport.update({
-  id: '/_app/sources',
+  id: '/sources',
   path: '/sources',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppNewslettersRoute = AppNewslettersRouteImport.update({
-  id: '/_app/newsletters',
+  id: '/newsletters',
   path: '/newsletters',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppInboxRoute = AppInboxRouteImport.update({
-  id: '/_app/inbox',
+  id: '/inbox',
   path: '/inbox',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppHistoryRoute = AppHistoryRouteImport.update({
-  id: '/_app/history',
+  id: '/history',
   path: '/history',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppConfigRoute = AppConfigRouteImport.update({
-  id: '/_app/config',
+  id: '/config',
   path: '/config',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const ApiPublicRejectRoute = ApiPublicRejectRouteImport.update({
   id: '/api/public/reject',
@@ -90,6 +95,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_app': typeof AppRouteRouteWithChildren
   '/_app/config': typeof AppConfigRoute
   '/_app/history': typeof AppHistoryRoute
   '/_app/inbox': typeof AppInboxRoute
@@ -125,6 +131,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/_app'
     | '/_app/config'
     | '/_app/history'
     | '/_app/inbox'
@@ -137,11 +144,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AppConfigRoute: typeof AppConfigRoute
-  AppHistoryRoute: typeof AppHistoryRoute
-  AppInboxRoute: typeof AppInboxRoute
-  AppNewslettersRoute: typeof AppNewslettersRoute
-  AppSourcesRoute: typeof AppSourcesRoute
+  AppRouteRoute: typeof AppRouteRouteWithChildren
   ApiPublicApproveRoute: typeof ApiPublicApproveRoute
   ApiPublicCronScanRoute: typeof ApiPublicCronScanRoute
   ApiPublicRejectRoute: typeof ApiPublicRejectRoute
@@ -149,6 +152,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -161,35 +171,35 @@ declare module '@tanstack/react-router' {
       path: '/sources'
       fullPath: '/sources'
       preLoaderRoute: typeof AppSourcesRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/newsletters': {
       id: '/_app/newsletters'
       path: '/newsletters'
       fullPath: '/newsletters'
       preLoaderRoute: typeof AppNewslettersRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/inbox': {
       id: '/_app/inbox'
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof AppInboxRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/history': {
       id: '/_app/history'
       path: '/history'
       fullPath: '/history'
       preLoaderRoute: typeof AppHistoryRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/config': {
       id: '/_app/config'
       path: '/config'
       fullPath: '/config'
       preLoaderRoute: typeof AppConfigRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/api/public/reject': {
       id: '/api/public/reject'
@@ -215,13 +225,29 @@ declare module '@tanstack/react-router' {
   }
 }
 
-const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+interface AppRouteRouteChildren {
+  AppConfigRoute: typeof AppConfigRoute
+  AppHistoryRoute: typeof AppHistoryRoute
+  AppInboxRoute: typeof AppInboxRoute
+  AppNewslettersRoute: typeof AppNewslettersRoute
+  AppSourcesRoute: typeof AppSourcesRoute
+}
+
+const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppConfigRoute: AppConfigRoute,
   AppHistoryRoute: AppHistoryRoute,
   AppInboxRoute: AppInboxRoute,
   AppNewslettersRoute: AppNewslettersRoute,
   AppSourcesRoute: AppSourcesRoute,
+}
+
+const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
+  AppRouteRouteChildren,
+)
+
+const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
+  AppRouteRoute: AppRouteRouteWithChildren,
   ApiPublicApproveRoute: ApiPublicApproveRoute,
   ApiPublicCronScanRoute: ApiPublicCronScanRoute,
   ApiPublicRejectRoute: ApiPublicRejectRoute,
