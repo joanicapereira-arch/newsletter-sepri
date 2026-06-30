@@ -1,12 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
-import { generateText, Output } from "ai";
-import { z } from "zod";
-import { createHash } from "crypto";
-import { createLovableAi, requireLovableApiKey } from "./ai-gateway.server";
-import { firecrawlDeepScrape } from "./firecrawl.server";
-import { buildApprovalUrls } from "./tokens.server";
 
 const MODEL = "google/gemini-3-flash-preview";
+
 
 interface SourceRow {
   id: string;
