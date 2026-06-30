@@ -5,6 +5,7 @@ import { createLovableAi, requireLovableApiKey } from "./ai-gateway.server";
 import { firecrawlDeepScrape } from "./firecrawl.server";
 
 const MODEL = "google/gemini-3-flash-preview";
+const SOURCE_CONCURRENCY = 3;
 
 
 
@@ -22,8 +23,8 @@ async function getAdmin() {
 }
 
 async function scanOneSource(source: SourceRow, knownHashes: Set<string>) {
-  const deep = await firecrawlDeepScrape(source.url, { maxPages: 4, perPageChars: 3500 });
-  const content = deep.markdown.slice(0, 30000);
+  const deep = await firecrawlDeepScrape(source.url, { maxPages: 1, perPageChars: 2500 });
+  const content = deep.markdown.slice(0, 14000);
   if (!content) return { created: 0, error: null as string | null };
 
   const apiKey = requireLovableApiKey();
@@ -42,11 +43,11 @@ async function scanOneSource(source: SourceRow, knownHashes: Set<string>) {
           z.object({
             title: z.string(),
             summary: z.string(),
-            source_url: z.string().nullable(),
-            published_at: z.string().nullable(),
-            relevance_score: z.number().min(0).max(100),
+            source_url: z.string().nullable().optional(),
+            published_at: z.string().nullable().optional(),
+            relevance_score: z.coerce.number().min(0).max(100),
           }),
-        ),
+        ).default([]),
       }),
     }),
     system: `És um analista que monitoriza legislação e técnica para a SEPRI Group (medicina e segurança no trabalho em Portugal).
@@ -56,7 +57,7 @@ legionella, formação obrigatória, Lei 102/2009, Código do Trabalho, exames a
 campanhas EU-OSHA, alterações climáticas e trabalho. Para a Ordem dos Psicólogos, APENAS Psicologia do Trabalho.
 Ignora notícias institucionais genéricas, eventos sem impacto técnico, e tudo que seja off-topic.
 JANELA TEMPORAL: considera APENAS itens publicados entre ${fmt(cutoff)} e ${fmt(today)} (últimos 90 dias). Se a data não estiver visível mas o contexto indicar que é recente (ex: ainda em vigor, agenda futura), inclui; se claramente for antigo, ignora.
-Devolve até 15 itens. Se não houver nada relevante, devolve items: [].
+Devolve até 8 itens. Se não houver nada relevante, devolve items: [].
 published_at: data ISO (YYYY-MM-DD) se conseguires inferir, senão null.
 relevance_score: 0-100 (100 = altamente crítico).`,
     prompt: `Fonte: ${source.name}
@@ -72,7 +73,7 @@ ${content}
 Extrai novidades relevantes dos últimos 90 dias.`,
   });
 
-  const items = output.items.filter((i) => i.relevance_score >= 40);
+  const items = output.items.filter((i) => i.title && i.summary && i.relevance_score >= 40);
   const { createHash } = await import("crypto");
   const admin = await getAdmin();
   let created = 0;
@@ -162,6 +163,23 @@ function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<R>,
+) {
+  const results: R[] = [];
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (cursor < items.length) {
+      const current = cursor++;
+      results[current] = await mapper(items[current]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
   const admin = await getAdmin();
   const run = await admin
@@ -194,17 +212,15 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
   const errors: { source: string; error: string }[] = [];
   let totalCreated = 0;
   let scanned = 0;
-  // Scan all sources in parallel (each one already parallelizes its subpages)
-  const results = await Promise.all(
-    ((sources ?? []) as SourceRow[]).map(async (src) => {
+  // Scan with bounded concurrency to avoid API/backend contention.
+  const results = await mapWithConcurrency((sources ?? []) as SourceRow[], SOURCE_CONCURRENCY, async (src) => {
       try {
         const res = await scanOneSource(src, knownHashes);
         return { ok: true as const, created: res.created };
       } catch (e) {
         return { ok: false as const, source: src.name, error: String((e as Error).message ?? e) };
       }
-    }),
-  );
+    });
   for (const r of results) {
     if (r.ok) {
       totalCreated += r.created;
