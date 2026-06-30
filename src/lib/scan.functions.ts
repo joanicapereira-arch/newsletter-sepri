@@ -1,12 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { generateText, Output } from "ai";
 import { z } from "zod";
-import { createHash } from "crypto";
 import { createLovableAi, requireLovableApiKey } from "./ai-gateway.server";
 import { firecrawlDeepScrape } from "./firecrawl.server";
-import { buildApprovalUrls } from "./tokens.server";
 
 const MODEL = "google/gemini-3-flash-preview";
+
+
 
 interface SourceRow {
   id: string;
@@ -73,6 +73,7 @@ Extrai novidades relevantes dos últimos 90 dias.`,
   });
 
   const items = output.items.filter((i) => i.relevance_score >= 40);
+  const { createHash } = await import("crypto");
   const admin = await getAdmin();
   let created = 0;
   for (const item of items) {
@@ -103,6 +104,7 @@ async function sendAlertEmail(
   detection: { id: string; title: string; summary: string; source_name: string; source_url: string | null },
   origin: string,
 ) {
+  const { buildApprovalUrls } = await import("./tokens.server");
   const { approveUrl, rejectUrl } = buildApprovalUrls(origin, detection.id);
   // Try Brevo connector if available; otherwise log.
   const lovableKey = process.env.LOVABLE_API_KEY;
