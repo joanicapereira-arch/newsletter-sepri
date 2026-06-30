@@ -13,7 +13,7 @@ function authHeaders() {
   return { "Content-Type": "application/json", Authorization: `Bearer ${key}` };
 }
 
-export async function firecrawlScrape(url: string): Promise<FirecrawlScrapeResult | null> {
+export async function firecrawlScrape(url: string, waitFor = 800): Promise<FirecrawlScrapeResult | null> {
   const res = await fetch(`${FC_BASE}/scrape`, {
     method: "POST",
     headers: authHeaders(),
@@ -21,7 +21,8 @@ export async function firecrawlScrape(url: string): Promise<FirecrawlScrapeResul
       url,
       formats: ["markdown", "links"],
       onlyMainContent: true,
-      waitFor: 1500,
+      waitFor,
+      timeout: 15000,
     }),
   });
   if (!res.ok) {
@@ -31,6 +32,7 @@ export async function firecrawlScrape(url: string): Promise<FirecrawlScrapeResul
   const json = (await res.json()) as { success: boolean; data?: FirecrawlScrapeResult } & FirecrawlScrapeResult;
   return (json.data ?? json) as FirecrawlScrapeResult;
 }
+
 
 /**
  * Faz scraping mais profundo: além da página principal, descobre URLs
