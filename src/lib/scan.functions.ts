@@ -89,6 +89,36 @@ Extrai novidades relevantes dos últimos 90 dias.`,
   });
 
   const items = output.items.filter((i) => i.title && i.summary && i.relevance_score >= 40);
+
+  // Fallback: para itens sem published_at, faz scrape rápido do source_url
+  // e pede à IA para extrair APENAS a data de publicação.
+  await Promise.all(
+    items.map(async (item) => {
+      if (item.published_at) return;
+      const url = item.source_url ?? source.url;
+      if (!url || url === source.url) return; // só vale a pena se for página específica
+      try {
+        const { firecrawlScrape } = await import("./firecrawl.server");
+        const page = await firecrawlScrape(url, 150, 6000);
+        const md = (page?.markdown ?? "").slice(0, 6000);
+        if (!md) return;
+        const { output: dateOut } = await generateText({
+          model: ai(MODEL),
+          output: Output.object({
+            schema: z.object({ published_at: z.string().nullable() }),
+          }),
+          system: `Extrai a data de publicação da notícia/diploma a partir do conteúdo da página. Devolve YYYY-MM-DD ou null se mesmo não conseguires inferir. Procura por "Publicado em", "Data:", datas no formato DD/MM/AAAA, DD-MM-AAAA, ou referências como "1 de janeiro de 2025". Para diplomas do DRE usa a data do diploma.`,
+          prompt: `Título: ${item.title}\nURL: ${url}\n\nConteúdo:\n${md}`,
+        });
+        if (dateOut.published_at && /^\d{4}-\d{2}-\d{2}$/.test(dateOut.published_at)) {
+          item.published_at = dateOut.published_at;
+        }
+      } catch {
+        /* ignora — fica null */
+      }
+    }),
+  );
+
   const { createHash } = await import("crypto");
   const admin = await getAdmin();
   let created = 0;
