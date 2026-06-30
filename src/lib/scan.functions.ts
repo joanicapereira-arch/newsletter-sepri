@@ -22,7 +22,7 @@ async function getAdmin() {
 }
 
 async function scanOneSource(source: SourceRow, knownHashes: Set<string>) {
-  const deep = await firecrawlDeepScrape(source.url, { maxPages: 6, perPageChars: 4000 });
+  const deep = await firecrawlDeepScrape(source.url, { maxPages: 4, perPageChars: 3500 });
   const content = deep.markdown.slice(0, 30000);
   if (!content) return { created: 0, error: null as string | null };
 
@@ -194,15 +194,28 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
   const errors: { source: string; error: string }[] = [];
   let totalCreated = 0;
   let scanned = 0;
-  for (const src of (sources ?? []) as SourceRow[]) {
-    try {
-      const res = await scanOneSource(src, knownHashes);
-      totalCreated += res.created;
+  // Scan all sources in parallel (each one already parallelizes its subpages)
+  const results = await Promise.all(
+    ((sources ?? []) as SourceRow[]).map(async (src) => {
+      try {
+        const res = await scanOneSource(src, knownHashes);
+        return { ok: true as const, created: res.created };
+      } catch (e) {
+        return { ok: false as const, source: src.name, error: String((e as Error).message ?? e) };
+      }
+    }),
+  );
+  for (const r of results) {
+    if (r.ok) {
+      totalCreated += r.created;
       scanned++;
-    } catch (e) {
-      errors.push({ source: src.name, error: String((e as Error).message ?? e) });
+    } else {
+      errors.push({ source: r.source, error: r.error });
     }
   }
+
+  // Send alert emails in parallel too
+
 
   // Send alerts for new pending detections from this run
   const { data: newPending } = await admin
@@ -212,9 +225,7 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
     .gte("detected_at", new Date(Date.now() - 5 * 60_000).toISOString())
     .order("relevance_score", { ascending: false })
     .limit(20);
-  for (const d of newPending ?? []) {
-    await sendAlertEmail(alertEmail, d, origin);
-  }
+  await Promise.all((newPending ?? []).map((d) => sendAlertEmail(alertEmail, d, origin)));
 
   await admin
     .from("scan_runs")
