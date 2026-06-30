@@ -43,11 +43,11 @@ async function scanOneSource(source: SourceRow, knownHashes: Set<string>) {
           z.object({
             title: z.string(),
             summary: z.string(),
-            source_url: z.string().nullable(),
-            published_at: z.string().nullable(),
-            relevance_score: z.number().min(0).max(100),
+            source_url: z.string().nullable().optional(),
+            published_at: z.string().nullable().optional(),
+            relevance_score: z.coerce.number().min(0).max(100),
           }),
-        ),
+        ).default([]),
       }),
     }),
     system: `És um analista que monitoriza legislação e técnica para a SEPRI Group (medicina e segurança no trabalho em Portugal).
@@ -73,7 +73,7 @@ ${content}
 Extrai novidades relevantes dos últimos 90 dias.`,
   });
 
-  const items = output.items.filter((i) => i.relevance_score >= 40);
+  const items = output.items.filter((i) => i.title && i.summary && i.relevance_score >= 40);
   const { createHash } = await import("crypto");
   const admin = await getAdmin();
   let created = 0;
