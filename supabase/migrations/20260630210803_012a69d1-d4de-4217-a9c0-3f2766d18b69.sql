@@ -1,0 +1,1 @@
+ALTER TABLE public.detections ADD COLUMN IF NOT EXISTS published_at date;

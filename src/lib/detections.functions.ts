@@ -39,6 +39,7 @@ export const approveDetection = createServerFn({ method: "POST" })
         summary: det.summary,
         source_name: det.source_name,
         source_url: det.source_url,
+        published_at: det.published_at,
       },
       {
         logo_url: cfg?.logo_url ?? "https://via.placeholder.com/200x60?text=SEPRI",
@@ -85,6 +86,7 @@ export const regenerateNewsletter = createServerFn({ method: "POST" })
         summary: det.summary,
         source_name: det.source_name,
         source_url: det.source_url,
+        published_at: det.published_at,
       },
       {
         logo_url: cfg?.logo_url ?? "",
