@@ -7,6 +7,7 @@ export interface NewsletterParts {
   imagePlaceholder?: string; // optional URL
   sourceUrl?: string;
   publishedAt?: string; // ISO date (YYYY-MM-DD)
+  composite?: boolean; // when true, suppress single-item header (title/lead/image/source)
 }
 
 export interface NewsletterChrome {
@@ -15,16 +16,25 @@ export interface NewsletterChrome {
 }
 
 export function renderNewsletterHtml(parts: NewsletterParts, chrome: NewsletterChrome): string {
-  const img = parts.imagePlaceholder
+  const composite = parts.composite === true;
+  const img = composite
+    ? ""
+    : parts.imagePlaceholder
     ? `<img src="${esc(parts.imagePlaceholder)}" alt="${esc(parts.title)}" style="width:100%;max-width:600px;height:auto;display:block;border-radius:6px;margin:24px 0;" />`
     : `<div style="background:#f3f4f6;border:1px dashed #cbd5e1;border-radius:6px;padding:48px;text-align:center;color:#94a3b8;font-family:Arial,sans-serif;margin:24px 0;">[ Inserir aqui imagem ou vídeo ilustrativo ]</div>`;
 
-  const publishedLine = parts.publishedAt
+  const publishedLine = !composite && parts.publishedAt
     ? `<p style="font-size:13px;color:#64748b;margin:0 0 16px;">Publicado em ${esc(new Date(parts.publishedAt).toLocaleDateString("pt-PT"))}</p>`
     : "";
-  const sourceLink = parts.sourceUrl
+  const sourceLink = !composite && parts.sourceUrl
     ? `<p style="font-size:13px;color:#64748b;margin-top:24px;">Fonte: <a href="${esc(parts.sourceUrl)}" style="color:#0f5e8f;">${esc(parts.sourceUrl)}</a></p>`
     : "";
+  const headBlock = composite
+    ? ""
+    : `<h1 style="font-size:24px;line-height:1.3;margin:0 0 8px;color:#0f172a;">${esc(parts.title)}</h1>
+        ${publishedLine}
+        <p style="font-size:17px;line-height:1.55;font-weight:600;color:#0f5e8f;margin:0 0 8px;">${esc(parts.lead)}</p>
+        ${img}`;
 
   return `<!doctype html>
 <html lang="pt">
