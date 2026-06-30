@@ -74,6 +74,7 @@ export type Database = {
           decided_by: string | null
           detected_at: string
           id: string
+          published_at: string | null
           relevance_score: number
           source_id: string | null
           source_name: string
@@ -88,6 +89,7 @@ export type Database = {
           decided_by?: string | null
           detected_at?: string
           id?: string
+          published_at?: string | null
           relevance_score?: number
           source_id?: string | null
           source_name: string
@@ -102,6 +104,7 @@ export type Database = {
           decided_by?: string | null
           detected_at?: string
           id?: string
+          published_at?: string | null
           relevance_score?: number
           source_id?: string | null
           source_name?: string

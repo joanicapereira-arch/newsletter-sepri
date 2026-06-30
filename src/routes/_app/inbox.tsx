@@ -123,8 +123,11 @@ function InboxPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-foreground/80 mb-4">{d.summary}</p>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs text-muted-foreground mr-auto">
+                  {d.published_at
+                    ? `Publicada ${new Date(d.published_at).toLocaleDateString("pt-PT")} · `
+                    : ""}
                   Detetada {new Date(d.detected_at).toLocaleString("pt-PT")}
                 </span>
                 {d.status === "pending" && (

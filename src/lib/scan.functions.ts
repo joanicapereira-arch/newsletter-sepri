@@ -91,6 +91,7 @@ Extrai novidades relevantes dos últimos 90 dias.`,
       source_url: item.source_url ?? source.url,
       content_hash: hash,
       relevance_score: item.relevance_score,
+      published_at: item.published_at ?? null,
     });
     if (!error) {
       created++;
