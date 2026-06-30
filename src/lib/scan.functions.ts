@@ -319,7 +319,100 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
     })
     .eq("id", runId);
 
+  // Email-resumo do scan (apenas para scans automáticos diários)
+  if (triggeredBy === "cron") {
+    await sendScanSummaryEmail(alertEmail, {
+      scanned,
+      created: totalCreated,
+      errors,
+      detections: newPending ?? [],
+      origin,
+    });
+  }
+
   return { runId, scanned, created: totalCreated, errors };
+}
+
+async function sendScanSummaryEmail(
+  to: string,
+  data: {
+    scanned: number;
+    created: number;
+    errors: { source: string; error: string }[];
+    detections: { id: string; title: string; summary: string; source_name: string; source_url: string | null }[];
+    origin: string;
+  },
+) {
+  const lovableKey = process.env.LOVABLE_API_KEY;
+  const brevoKey = process.env.BREVO_API_KEY;
+  if (!lovableKey || !brevoKey) {
+    console.warn("[scan-summary] Brevo não conectado — resumo apenas registado", {
+      to,
+      scanned: data.scanned,
+      created: data.created,
+    });
+    return;
+  }
+  const today = new Date().toLocaleDateString("pt-PT", { day: "2-digit", month: "long", year: "numeric" });
+  const inboxUrl = `${data.origin}/inbox`;
+  const detectionsHtml = data.detections.length
+    ? data.detections
+        .map(
+          (d) => `<li style="margin:0 0 12px;">
+            <strong>${escapeHtml(d.title)}</strong><br/>
+            <span style="font-size:12px;color:#64748b;">${escapeHtml(d.source_name)}</span><br/>
+            <span style="font-size:13px;color:#334155;">${escapeHtml(d.summary)}</span>
+            ${d.source_url ? `<br/><a href="${d.source_url}" style="font-size:12px;color:#0f5e8f;">Ver fonte →</a>` : ""}
+          </li>`,
+        )
+        .join("")
+    : `<li style="color:#64748b;">Sem novas deteções relevantes hoje.</li>`;
+  const errorsHtml = data.errors.length
+    ? `<p style="margin:16px 0 4px;font-weight:600;color:#b91c1c;">Erros (${data.errors.length}):</p>
+       <ul style="padding-left:18px;color:#b91c1c;font-size:13px;">${data.errors
+         .map((e) => `<li>${escapeHtml(e.source)}: ${escapeHtml(e.error)}</li>`)
+         .join("")}</ul>`
+    : "";
+
+  const html = `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#0f172a;">
+    <h2 style="color:#0f5e8f;margin:0 0 4px;">Resumo do scan diário SEPRI</h2>
+    <p style="margin:0 0 16px;color:#64748b;font-size:13px;">${today}</p>
+    <table style="border-collapse:collapse;margin:0 0 16px;">
+      <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Fontes analisadas:</td><td style="font-weight:600;">${data.scanned}</td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Novas deteções:</td><td style="font-weight:600;">${data.created}</td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Erros:</td><td style="font-weight:600;">${data.errors.length}</td></tr>
+    </table>
+    <h3 style="margin:16px 0 8px;">Deteções desta execução</h3>
+    <ul style="padding-left:18px;">${detectionsHtml}</ul>
+    ${errorsHtml}
+    <p style="margin:24px 0 8px;">
+      <a href="${inboxUrl}" style="background:#0f5e8f;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block;">Abrir caixa de entrada</a>
+    </p>
+    <p style="font-size:11px;color:#94a3b8;margin-top:24px;">Scan automático SEPRI · executado diariamente às 07:00 (Lisboa).</p>
+  </div>`;
+
+  try {
+    const r = await fetch("https://connector-gateway.lovable.dev/brevo/smtp/email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${lovableKey}`,
+        "X-Connection-Api-Key": brevoKey,
+      },
+      body: JSON.stringify({
+        sender: { name: "SEPRI Newsletter Bot", email: "no-reply@sepri.pt" },
+        to: [{ email: to }],
+        subject: `[SEPRI] Resumo do scan diário — ${data.created} nova(s) deteção(ões)`,
+        htmlContent: html,
+      }),
+    });
+    if (!r.ok) {
+      const t = await r.text();
+      console.error("Brevo summary send failed", r.status, t);
+    }
+  } catch (e) {
+    console.error("Brevo summary send error", e);
+  }
 }
 
 export const triggerManualScan = createServerFn({ method: "POST" }).handler(async () => {
