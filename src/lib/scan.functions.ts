@@ -22,7 +22,7 @@ async function getAdmin() {
 }
 
 async function scanOneSource(source: SourceRow, knownHashes: Set<string>) {
-  const deep = await firecrawlDeepScrape(source.url, { maxPages: 6, perPageChars: 4000 });
+  const deep = await firecrawlDeepScrape(source.url, { maxPages: 4, perPageChars: 3500 });
   const content = deep.markdown.slice(0, 30000);
   if (!content) return { created: 0, error: null as string | null };
 
