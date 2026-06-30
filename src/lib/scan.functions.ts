@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import { createHash } from "crypto";
@@ -214,17 +213,9 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
   return { runId, scanned, created: totalCreated, errors };
 }
 
-export const triggerManualScan = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const admin = await getAdmin();
-    const { data: isAdmin } = await admin.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (!isAdmin) throw new Error("Sem permissões");
-    const { getRequestHost } = await import("@tanstack/react-start/server");
-    const host = getRequestHost();
-    const origin = `https://${host}`;
-    return runScan(origin, "manual");
-  });
+export const triggerManualScan = createServerFn({ method: "POST" }).handler(async () => {
+  const { getRequestHost } = await import("@tanstack/react-start/server");
+  const host = getRequestHost();
+  const origin = `https://${host}`;
+  return runScan(origin, "manual");
+});

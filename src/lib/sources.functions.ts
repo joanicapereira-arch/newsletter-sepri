@@ -1,26 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-async function admin() {
+async function getAdmin() {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin;
 }
-async function ensureAdmin(userId: string) {
-  const a = await admin();
-  const { data } = await a.rpc("has_role", { _user_id: userId, _role: "admin" });
-  if (!data) throw new Error("Sem permissões");
-  return a;
-}
 
-export const listSources = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const a = await ensureAdmin(context.userId);
-    const { data, error } = await a.from("sources").select("*").order("name");
-    if (error) throw new Error(error.message);
-    return data ?? [];
-  });
+export const listSources = createServerFn({ method: "GET" }).handler(async () => {
+  const a = await getAdmin();
+  const { data, error } = await a.from("sources").select("*").order("name");
+  if (error) throw new Error(error.message);
+  return data ?? [];
+});
 
 const SourceInput = z.object({
   id: z.string().uuid().optional(),
@@ -32,10 +23,9 @@ const SourceInput = z.object({
 });
 
 export const upsertSource = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => SourceInput.parse(d))
-  .handler(async ({ data, context }) => {
-    const a = await ensureAdmin(context.userId);
+  .handler(async ({ data }) => {
+    const a = await getAdmin();
     if (data.id) {
       await a.from("sources").update({ ...data, updated_at: new Date().toISOString() }).eq("id", data.id);
     } else {
@@ -45,21 +35,18 @@ export const upsertSource = createServerFn({ method: "POST" })
   });
 
 export const deleteSource = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
-  .handler(async ({ data, context }) => {
-    const a = await ensureAdmin(context.userId);
+  .handler(async ({ data }) => {
+    const a = await getAdmin();
     await a.from("sources").delete().eq("id", data.id);
     return { ok: true };
   });
 
-export const getConfig = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const a = await ensureAdmin(context.userId);
-    const { data } = await a.from("app_config").select("*").eq("id", 1).single();
-    return data;
-  });
+export const getConfig = createServerFn({ method: "GET" }).handler(async () => {
+  const a = await getAdmin();
+  const { data } = await a.from("app_config").select("*").eq("id", 1).single();
+  return data;
+});
 
 const ConfigInput = z.object({
   logo_url: z.string().url(),
@@ -68,18 +55,13 @@ const ConfigInput = z.object({
 });
 
 export const updateConfig = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ConfigInput.parse(d))
-  .handler(async ({ data, context }) => {
-    const a = await ensureAdmin(context.userId);
+  .handler(async ({ data }) => {
+    const a = await getAdmin();
     await a.from("app_config").update({ ...data, updated_at: new Date().toISOString() }).eq("id", 1);
     return { ok: true };
   });
 
-export const checkIsAdmin = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const a = await admin();
-    const { data } = await a.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    return { isAdmin: !!data, userId: context.userId };
-  });
+export const checkIsAdmin = createServerFn({ method: "GET" }).handler(async () => {
+  return { isAdmin: true, userId: "anon" };
+});

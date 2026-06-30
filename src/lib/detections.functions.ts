@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 async function getAdmin() {
@@ -7,20 +6,12 @@ async function getAdmin() {
   return supabaseAdmin;
 }
 
-async function ensureAdmin(userId: string) {
-  const admin = await getAdmin();
-  const { data } = await admin.rpc("has_role", { _user_id: userId, _role: "admin" });
-  if (!data) throw new Error("Sem permissões");
-  return admin;
-}
-
 export const listDetections = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({ status: z.enum(["pending", "approved", "rejected", "all"]).default("pending") }).parse(d),
   )
-  .handler(async ({ data, context }) => {
-    const admin = await ensureAdmin(context.userId);
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
     let q = admin.from("detections").select("*").order("detected_at", { ascending: false }).limit(200);
     if (data.status !== "all") q = q.eq("status", data.status);
     const { data: rows, error } = await q;
@@ -29,10 +20,9 @@ export const listDetections = createServerFn({ method: "POST" })
   });
 
 export const approveDetection = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ detection_id: z.string().uuid() }).parse(d))
-  .handler(async ({ data, context }) => {
-    const admin = await ensureAdmin(context.userId);
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
     const { data: det, error } = await admin
       .from("detections")
       .select("*")
@@ -62,33 +52,29 @@ export const approveDetection = createServerFn({ method: "POST" })
       .update({
         status: "approved",
         decided_at: new Date().toISOString(),
-        decided_by: context.userId,
       })
       .eq("id", det.id);
     return { ok: true };
   });
 
 export const rejectDetection = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ detection_id: z.string().uuid() }).parse(d))
-  .handler(async ({ data, context }) => {
-    const admin = await ensureAdmin(context.userId);
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
     await admin
       .from("detections")
       .update({
         status: "rejected",
         decided_at: new Date().toISOString(),
-        decided_by: context.userId,
       })
       .eq("id", data.detection_id);
     return { ok: true };
   });
 
 export const regenerateNewsletter = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ detection_id: z.string().uuid() }).parse(d))
-  .handler(async ({ data, context }) => {
-    const admin = await ensureAdmin(context.userId);
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
     const { data: det } = await admin.from("detections").select("*").eq("id", data.detection_id).single();
     if (!det) throw new Error("Deteção não encontrada");
     const { data: cfg } = await admin.from("app_config").select("*").eq("id", 1).single();
@@ -110,9 +96,8 @@ export const regenerateNewsletter = createServerFn({ method: "POST" })
   });
 
 export const listNewsletters = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const admin = await ensureAdmin(context.userId);
+  .handler(async () => {
+    const admin = await getAdmin();
     const { data, error } = await admin
       .from("newsletters")
       .select("id,detection_id,subject,generated_at,detections(title,source_name,source_url)")
@@ -123,19 +108,17 @@ export const listNewsletters = createServerFn({ method: "GET" })
   });
 
 export const getNewsletter = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
-  .handler(async ({ data, context }) => {
-    const admin = await ensureAdmin(context.userId);
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
     const { data: row, error } = await admin.from("newsletters").select("*").eq("id", data.id).single();
     if (error) throw new Error(error.message);
     return row;
   });
 
 export const listScanRuns = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const admin = await ensureAdmin(context.userId);
+  .handler(async () => {
+    const admin = await getAdmin();
     const { data } = await admin
       .from("scan_runs")
       .select("*")
