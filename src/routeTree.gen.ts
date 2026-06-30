@@ -9,15 +9,57 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedSourcesRouteImport } from './routes/_authenticated/sources'
+import { Route as AuthenticatedNewslettersRouteImport } from './routes/_authenticated/newsletters'
+import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
+import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
+import { Route as AuthenticatedConfigRouteImport } from './routes/_authenticated/config'
 import { Route as ApiPublicRejectRouteImport } from './routes/api/public/reject'
 import { Route as ApiPublicCronScanRouteImport } from './routes/api/public/cron-scan'
 import { Route as ApiPublicApproveRouteImport } from './routes/api/public/approve'
 
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedSourcesRoute = AuthenticatedSourcesRouteImport.update({
+  id: '/sources',
+  path: '/sources',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedNewslettersRoute =
+  AuthenticatedNewslettersRouteImport.update({
+    id: '/newsletters',
+    path: '/newsletters',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedInboxRoute = AuthenticatedInboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedConfigRoute = AuthenticatedConfigRouteImport.update({
+  id: '/config',
+  path: '/config',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const ApiPublicRejectRoute = ApiPublicRejectRouteImport.update({
   id: '/api/public/reject',
@@ -37,12 +79,24 @@ const ApiPublicApproveRoute = ApiPublicApproveRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/config': typeof AuthenticatedConfigRoute
+  '/history': typeof AuthenticatedHistoryRoute
+  '/inbox': typeof AuthenticatedInboxRoute
+  '/newsletters': typeof AuthenticatedNewslettersRoute
+  '/sources': typeof AuthenticatedSourcesRoute
   '/api/public/approve': typeof ApiPublicApproveRoute
   '/api/public/cron-scan': typeof ApiPublicCronScanRoute
   '/api/public/reject': typeof ApiPublicRejectRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/config': typeof AuthenticatedConfigRoute
+  '/history': typeof AuthenticatedHistoryRoute
+  '/inbox': typeof AuthenticatedInboxRoute
+  '/newsletters': typeof AuthenticatedNewslettersRoute
+  '/sources': typeof AuthenticatedSourcesRoute
   '/api/public/approve': typeof ApiPublicApproveRoute
   '/api/public/cron-scan': typeof ApiPublicCronScanRoute
   '/api/public/reject': typeof ApiPublicRejectRoute
@@ -50,6 +104,13 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/_authenticated/config': typeof AuthenticatedConfigRoute
+  '/_authenticated/history': typeof AuthenticatedHistoryRoute
+  '/_authenticated/inbox': typeof AuthenticatedInboxRoute
+  '/_authenticated/newsletters': typeof AuthenticatedNewslettersRoute
+  '/_authenticated/sources': typeof AuthenticatedSourcesRoute
   '/api/public/approve': typeof ApiPublicApproveRoute
   '/api/public/cron-scan': typeof ApiPublicCronScanRoute
   '/api/public/reject': typeof ApiPublicRejectRoute
@@ -58,18 +119,37 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/auth'
+    | '/config'
+    | '/history'
+    | '/inbox'
+    | '/newsletters'
+    | '/sources'
     | '/api/public/approve'
     | '/api/public/cron-scan'
     | '/api/public/reject'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/auth'
+    | '/config'
+    | '/history'
+    | '/inbox'
+    | '/newsletters'
+    | '/sources'
     | '/api/public/approve'
     | '/api/public/cron-scan'
     | '/api/public/reject'
   id:
     | '__root__'
     | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/config'
+    | '/_authenticated/history'
+    | '/_authenticated/inbox'
+    | '/_authenticated/newsletters'
+    | '/_authenticated/sources'
     | '/api/public/approve'
     | '/api/public/cron-scan'
     | '/api/public/reject'
@@ -77,6 +157,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
   ApiPublicApproveRoute: typeof ApiPublicApproveRoute
   ApiPublicCronScanRoute: typeof ApiPublicCronScanRoute
   ApiPublicRejectRoute: typeof ApiPublicRejectRoute
@@ -84,12 +166,61 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/sources': {
+      id: '/_authenticated/sources'
+      path: '/sources'
+      fullPath: '/sources'
+      preLoaderRoute: typeof AuthenticatedSourcesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/newsletters': {
+      id: '/_authenticated/newsletters'
+      path: '/newsletters'
+      fullPath: '/newsletters'
+      preLoaderRoute: typeof AuthenticatedNewslettersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/inbox': {
+      id: '/_authenticated/inbox'
+      path: '/inbox'
+      fullPath: '/inbox'
+      preLoaderRoute: typeof AuthenticatedInboxRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/history': {
+      id: '/_authenticated/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof AuthenticatedHistoryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/config': {
+      id: '/_authenticated/config'
+      path: '/config'
+      fullPath: '/config'
+      preLoaderRoute: typeof AuthenticatedConfigRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/api/public/reject': {
       id: '/api/public/reject'
@@ -115,8 +246,29 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedConfigRoute: typeof AuthenticatedConfigRoute
+  AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
+  AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
+  AuthenticatedNewslettersRoute: typeof AuthenticatedNewslettersRoute
+  AuthenticatedSourcesRoute: typeof AuthenticatedSourcesRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedConfigRoute: AuthenticatedConfigRoute,
+  AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
+  AuthenticatedInboxRoute: AuthenticatedInboxRoute,
+  AuthenticatedNewslettersRoute: AuthenticatedNewslettersRoute,
+  AuthenticatedSourcesRoute: AuthenticatedSourcesRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
   ApiPublicApproveRoute: ApiPublicApproveRoute,
   ApiPublicCronScanRoute: ApiPublicCronScanRoute,
   ApiPublicRejectRoute: ApiPublicRejectRoute,
