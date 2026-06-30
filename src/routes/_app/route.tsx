@@ -1,5 +1,6 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { Inbox, FileText, Globe, History, Settings } from "lucide-react";
+import sepriLogo from "@/assets/sepri-logo.png.asset.json";
 
 export const Route = createFileRoute("/_app")({
   component: Layout,
@@ -20,17 +21,13 @@ function Layout() {
     <div className="min-h-screen flex bg-background">
       <aside className="w-64 border-r bg-sidebar text-sidebar-foreground flex flex-col">
         <div className="p-5 border-b border-sidebar-border">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-lg bg-sidebar-primary text-sidebar-primary-foreground flex items-center justify-center font-bold">
-              S
-            </div>
-            <div>
-              <div className="font-semibold leading-tight">SEPRI</div>
-              <div className="text-xs text-muted-foreground">Newsletter Bot</div>
-            </div>
+          <div className="flex flex-col items-center gap-2">
+            <img src={sepriLogo.url} alt="SEPRI Group" className="h-16 w-auto" />
+            <div className="text-xs text-muted-foreground tracking-wide">Newsletter Bot</div>
           </div>
         </div>
         <nav className="flex-1 p-3 space-y-1">
+
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = location.pathname === item.to;
