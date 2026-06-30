@@ -194,15 +194,28 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
   const errors: { source: string; error: string }[] = [];
   let totalCreated = 0;
   let scanned = 0;
-  for (const src of (sources ?? []) as SourceRow[]) {
-    try {
-      const res = await scanOneSource(src, knownHashes);
-      totalCreated += res.created;
+  // Scan all sources in parallel (each one already parallelizes its subpages)
+  const results = await Promise.all(
+    ((sources ?? []) as SourceRow[]).map(async (src) => {
+      try {
+        const res = await scanOneSource(src, knownHashes);
+        return { ok: true as const, created: res.created };
+      } catch (e) {
+        return { ok: false as const, source: src.name, error: String((e as Error).message ?? e) };
+      }
+    }),
+  );
+  for (const r of results) {
+    if (r.ok) {
+      totalCreated += r.created;
       scanned++;
-    } catch (e) {
-      errors.push({ source: src.name, error: String((e as Error).message ?? e) });
+    } else {
+      errors.push({ source: r.source, error: r.error });
     }
   }
+
+  // Send alert emails in parallel too
+
 
   // Send alerts for new pending detections from this run
   const { data: newPending } = await admin
