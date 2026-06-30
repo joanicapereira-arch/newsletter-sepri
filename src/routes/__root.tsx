@@ -12,6 +12,7 @@ import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import sepriIcon from "@/assets/sepri-icon.png.asset.json";
 
 
 function NotFoundComponent() {
