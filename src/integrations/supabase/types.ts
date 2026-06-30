@@ -125,21 +125,24 @@ export type Database = {
       }
       newsletters: {
         Row: {
-          detection_id: string
+          detection_id: string | null
+          detection_ids: string[]
           generated_at: string
           html: string
           id: string
           subject: string
         }
         Insert: {
-          detection_id: string
+          detection_id?: string | null
+          detection_ids?: string[]
           generated_at?: string
           html: string
           id?: string
           subject: string
         }
         Update: {
-          detection_id?: string
+          detection_id?: string | null
+          detection_ids?: string[]
           generated_at?: string
           html?: string
           id?: string
