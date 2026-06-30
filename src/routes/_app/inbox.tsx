@@ -34,9 +34,13 @@ function InboxPage() {
   });
 
   const selectableIds = useMemo(
-    () => (detections ?? []).filter((d) => d.status !== "rejected").map((d) => d.id),
-    [detections],
+    () =>
+      status === "approved"
+        ? (detections ?? []).map((d) => d.id)
+        : [],
+    [detections, status],
   );
+
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -124,7 +128,15 @@ function InboxPage() {
         </TabsList>
       </Tabs>
 
-      {selectableIds.length > 0 && (
+      {status === "pending" && (
+        <div className="border rounded-md p-3 mb-4 bg-muted/30 text-sm text-muted-foreground">
+          Começa por <strong>aprovar</strong> ou <strong>rejeitar</strong> as notícias detetadas.
+          Depois, na secção <strong>Aprovadas</strong>, podes selecionar várias e clicar em
+          <strong> Gerar newsletter</strong> para criar uma newsletter combinada.
+        </div>
+      )}
+
+      {status === "approved" && selectableIds.length > 0 && (
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border rounded-md p-3 mb-4 flex items-center gap-3 flex-wrap">
           <span className="text-sm font-medium">
             {selected.size} selecionada(s)
@@ -154,6 +166,7 @@ function InboxPage() {
         </div>
       )}
 
+
       {isLoading && <p className="text-muted-foreground">A carregar…</p>}
 
       {detections && detections.length === 0 && (
@@ -166,7 +179,7 @@ function InboxPage() {
 
       <div className="space-y-3">
         {detections?.map((d) => {
-          const isSelectable = d.status !== "rejected";
+          const isSelectable = status === "approved" && d.status === "approved";
           const checked = selected.has(d.id);
           return (
             <Card key={d.id} className={checked ? "ring-2 ring-primary" : ""}>
