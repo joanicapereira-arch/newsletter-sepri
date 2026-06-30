@@ -10,33 +10,76 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicRejectRouteImport } from './routes/api/public/reject'
+import { Route as ApiPublicCronScanRouteImport } from './routes/api/public/cron-scan'
+import { Route as ApiPublicApproveRouteImport } from './routes/api/public/approve'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicRejectRoute = ApiPublicRejectRouteImport.update({
+  id: '/api/public/reject',
+  path: '/api/public/reject',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicCronScanRoute = ApiPublicCronScanRouteImport.update({
+  id: '/api/public/cron-scan',
+  path: '/api/public/cron-scan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicApproveRoute = ApiPublicApproveRouteImport.update({
+  id: '/api/public/approve',
+  path: '/api/public/approve',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/public/approve': typeof ApiPublicApproveRoute
+  '/api/public/cron-scan': typeof ApiPublicCronScanRoute
+  '/api/public/reject': typeof ApiPublicRejectRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/public/approve': typeof ApiPublicApproveRoute
+  '/api/public/cron-scan': typeof ApiPublicCronScanRoute
+  '/api/public/reject': typeof ApiPublicRejectRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/public/approve': typeof ApiPublicApproveRoute
+  '/api/public/cron-scan': typeof ApiPublicCronScanRoute
+  '/api/public/reject': typeof ApiPublicRejectRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/api/public/approve'
+    | '/api/public/cron-scan'
+    | '/api/public/reject'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/api/public/approve'
+    | '/api/public/cron-scan'
+    | '/api/public/reject'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/public/approve'
+    | '/api/public/cron-scan'
+    | '/api/public/reject'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiPublicApproveRoute: typeof ApiPublicApproveRoute
+  ApiPublicCronScanRoute: typeof ApiPublicCronScanRoute
+  ApiPublicRejectRoute: typeof ApiPublicRejectRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +91,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/reject': {
+      id: '/api/public/reject'
+      path: '/api/public/reject'
+      fullPath: '/api/public/reject'
+      preLoaderRoute: typeof ApiPublicRejectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/cron-scan': {
+      id: '/api/public/cron-scan'
+      path: '/api/public/cron-scan'
+      fullPath: '/api/public/cron-scan'
+      preLoaderRoute: typeof ApiPublicCronScanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/approve': {
+      id: '/api/public/approve'
+      path: '/api/public/approve'
+      fullPath: '/api/public/approve'
+      preLoaderRoute: typeof ApiPublicApproveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiPublicApproveRoute: ApiPublicApproveRoute,
+  ApiPublicCronScanRoute: ApiPublicCronScanRoute,
+  ApiPublicRejectRoute: ApiPublicRejectRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
