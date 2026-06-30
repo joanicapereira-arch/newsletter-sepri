@@ -13,16 +13,27 @@ function authHeaders() {
   return { "Content-Type": "application/json", Authorization: `Bearer ${key}` };
 }
 
-export async function firecrawlScrape(url: string, waitFor = 800): Promise<FirecrawlScrapeResult | null> {
+function timeoutSignal(ms: number) {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
+}
+
+export async function firecrawlScrape(
+  url: string,
+  waitFor = 250,
+  timeoutMs = 8000,
+): Promise<FirecrawlScrapeResult | null> {
   const res = await fetch(`${FC_BASE}/scrape`, {
     method: "POST",
     headers: authHeaders(),
+    signal: timeoutSignal(timeoutMs + 1500),
     body: JSON.stringify({
       url,
       formats: ["markdown", "links"],
       onlyMainContent: true,
       waitFor,
-      timeout: 15000,
+      timeout: timeoutMs,
     }),
   });
   if (!res.ok) {
@@ -44,16 +55,17 @@ export async function firecrawlDeepScrape(
   rootUrl: string,
   opts: { maxPages?: number; perPageChars?: number } = {},
 ): Promise<{ markdown: string; pages: number }> {
-  const maxPages = opts.maxPages ?? 4;
+  const maxPages = opts.maxPages ?? 0;
   const perPageChars = opts.perPageChars ?? 3500;
 
   // Run root scrape + map discovery in parallel
   const [root, mapJson] = await Promise.all([
-    firecrawlScrape(rootUrl, 800).catch(() => null),
+    firecrawlScrape(rootUrl, 250, 8000).catch(() => null),
     fetch(`${FC_BASE}/map`, {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ url: rootUrl, limit: 100, includeSubdomains: false }),
+      signal: timeoutSignal(7000),
+      body: JSON.stringify({ url: rootUrl, limit: 60, includeSubdomains: false }),
     })
       .then((r) => (r.ok ? (r.json() as Promise<{ links?: string[]; data?: { links?: string[] } }>) : null))
       .catch(() => null),
@@ -65,12 +77,25 @@ export async function firecrawlDeepScrape(
   }
 
   const candidates = mapJson?.links ?? mapJson?.data?.links ?? [];
-  const yearPattern = /\/(2025|2026)\//;
+  const year = new Date().getFullYear();
+  const yearPattern = new RegExp(`(${year}|${year - 1})`);
   const newsPattern = /(noticia|news|comunicado|press|legisla|circular|diploma|despacho|portaria|aviso|orientac|alerta|publicac)/i;
-  const filtered = Array.from(new Set(candidates))
+  const scored = Array.from(new Set(candidates))
     .filter((u) => u !== rootUrl)
-    .filter((u) => yearPattern.test(u) || newsPattern.test(u))
-    .slice(0, maxPages);
+    .map((u) => {
+      const decoded = decodeURIComponent(u).toLowerCase();
+      const score = (yearPattern.test(decoded) ? 3 : 0) + (newsPattern.test(decoded) ? 5 : 0);
+      return { u, score };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map((item) => item.u);
+
+  if (scored.length) {
+    parts.push(`\n\n---\n# URLs candidatas recentes/temáticas\n\n${scored.slice(0, 40).join("\n")}`);
+  }
+
+  const filtered = scored.slice(0, maxPages);
 
   const finalList = filtered.length > 0
     ? filtered
@@ -79,7 +104,7 @@ export async function firecrawlDeepScrape(
   // Scrape subpages in parallel
   const subs = await Promise.all(
     finalList.map((u) =>
-      firecrawlScrape(u, 500)
+      firecrawlScrape(u, 150, 6000)
         .then((sub) => ({ u, sub }))
         .catch(() => ({ u, sub: null as FirecrawlScrapeResult | null })),
     ),
