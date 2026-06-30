@@ -22,7 +22,22 @@ async function getAdmin() {
   return supabaseAdmin;
 }
 
-async function scanOneSource(source: SourceRow, knownHashes: Set<string>) {
+interface LearningExamples {
+  approved: { title: string; summary: string; source_name: string }[];
+  rejected: { title: string; summary: string; source_name: string }[];
+}
+
+function renderExamples(ex: LearningExamples): string {
+  if (!ex.approved.length && !ex.rejected.length) return "";
+  const fmt = (arr: LearningExamples["approved"]) =>
+    arr.map((d) => `- [${d.source_name}] ${d.title} — ${d.summary.slice(0, 140)}`).join("\n");
+  let out = "\n\nAPRENDIZAGEM (decisões anteriores da editora Eliana — usa-as como referência forte do que é/não é relevante):\n";
+  if (ex.approved.length) out += `\n✅ APROVADAS (exemplos do que QUERES detetar):\n${fmt(ex.approved)}\n`;
+  if (ex.rejected.length) out += `\n❌ REJEITADAS (exemplos do que NÃO deves detetar — penaliza fortemente itens semelhantes):\n${fmt(ex.rejected)}\n`;
+  return out;
+}
+
+async function scanOneSource(source: SourceRow, knownHashes: Set<string>, examples: LearningExamples) {
   const deep = await firecrawlDeepScrape(source.url, { maxPages: 1, perPageChars: 2500 });
   const content = deep.markdown.slice(0, 14000);
   if (!content) return { created: 0, error: null as string | null };
@@ -59,7 +74,7 @@ Ignora notícias institucionais genéricas, eventos sem impacto técnico, e tudo
 JANELA TEMPORAL: considera APENAS itens publicados entre ${fmt(cutoff)} e ${fmt(today)} (últimos 90 dias). Se a data não estiver visível mas o contexto indicar que é recente (ex: ainda em vigor, agenda futura), inclui; se claramente for antigo, ignora.
 Devolve até 8 itens. Se não houver nada relevante, devolve items: [].
 published_at: data ISO (YYYY-MM-DD) se conseguires inferir, senão null.
-relevance_score: 0-100 (100 = altamente crítico).`,
+relevance_score: 0-100 (100 = altamente crítico).${renderExamples(examples)}`,
     prompt: `Fonte: ${source.name}
 URL raiz: ${source.url}
 Palavras-chave de interesse: ${source.keywords.join(", ")}
@@ -210,13 +225,33 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
     .single();
   const alertEmail = config?.alert_email ?? "joanicapereira@gmail.com";
 
+  // Carrega exemplos de aprendizagem: últimas decisões da Eliana
+  const [{ data: approvedRows }, { data: rejectedRows }] = await Promise.all([
+    admin
+      .from("detections")
+      .select("title,summary,source_name")
+      .eq("status", "approved")
+      .order("decided_at", { ascending: false })
+      .limit(15),
+    admin
+      .from("detections")
+      .select("title,summary,source_name")
+      .eq("status", "rejected")
+      .order("decided_at", { ascending: false })
+      .limit(15),
+  ]);
+  const examples: LearningExamples = {
+    approved: approvedRows ?? [],
+    rejected: rejectedRows ?? [],
+  };
+
   const errors: { source: string; error: string }[] = [];
   let totalCreated = 0;
   let scanned = 0;
   // Scan with bounded concurrency to avoid API/backend contention.
   const results = await mapWithConcurrency((sources ?? []) as SourceRow[], SOURCE_CONCURRENCY, async (src) => {
       try {
-        const res = await scanOneSource(src, knownHashes);
+        const res = await scanOneSource(src, knownHashes, examples);
         return { ok: true as const, created: res.created };
       } catch (e) {
         return { ok: false as const, source: src.name, error: String((e as Error).message ?? e) };
