@@ -74,7 +74,7 @@ Ignora notícias institucionais genéricas, eventos sem impacto técnico, e tudo
 JANELA TEMPORAL: considera APENAS itens publicados entre ${fmt(cutoff)} e ${fmt(today)} (últimos 90 dias). Se a data não estiver visível mas o contexto indicar que é recente (ex: ainda em vigor, agenda futura), inclui; se claramente for antigo, ignora.
 Devolve até 8 itens. Se não houver nada relevante, devolve items: [].
 published_at: data ISO (YYYY-MM-DD) se conseguires inferir, senão null.
-relevance_score: 0-100 (100 = altamente crítico).`,
+relevance_score: 0-100 (100 = altamente crítico).${renderExamples(examples)}`,
     prompt: `Fonte: ${source.name}
 URL raiz: ${source.url}
 Palavras-chave de interesse: ${source.keywords.join(", ")}
