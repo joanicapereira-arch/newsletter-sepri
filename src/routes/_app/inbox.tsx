@@ -179,7 +179,7 @@ function InboxPage() {
 
       <div className="space-y-3">
         {detections?.map((d) => {
-          const isSelectable = d.status !== "rejected";
+          const isSelectable = status === "approved" && d.status === "approved";
           const checked = selected.has(d.id);
           return (
             <Card key={d.id} className={checked ? "ring-2 ring-primary" : ""}>
