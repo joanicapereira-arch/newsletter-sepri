@@ -26,38 +26,10 @@ export const approveDetection = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ detection_id: z.string().uuid() }).parse(d))
   .handler(async ({ data }) => {
     const admin = await getAdmin();
-    const { data: det, error } = await admin
-      .from("detections")
-      .select("*")
-      .eq("id", data.detection_id)
-      .single();
-    if (error || !det) throw new Error("Deteção não encontrada");
-    if (det.status !== "pending") return { already: true, status: det.status };
-
-    const { data: cfg } = await admin.from("app_config").select("*").eq("id", 1).single();
-    const { generateNewsletterHtml } = await import("./newsletter-ai.server");
-    const { subject, html } = await generateNewsletterHtml(
-      {
-        title: det.title,
-        summary: det.summary,
-        source_name: det.source_name,
-        source_url: det.source_url,
-        published_at: det.published_at,
-      },
-      {
-        logo_url: cfg?.logo_url ?? "https://via.placeholder.com/200x60?text=SEPRI",
-        disclaimer_html: cfg?.disclaimer_html ?? "",
-      },
-    );
-
-    await admin.from("newsletters").insert({ detection_id: det.id, subject, html });
     await admin
       .from("detections")
-      .update({
-        status: "approved",
-        decided_at: new Date().toISOString(),
-      })
-      .eq("id", det.id);
+      .update({ status: "approved", decided_at: new Date().toISOString() })
+      .eq("id", data.detection_id);
     return { ok: true };
   });
 
@@ -75,30 +47,56 @@ export const rejectDetection = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const regenerateNewsletter = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ detection_id: z.string().uuid() }).parse(d))
+export const generateNewsletterFromSelection = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z.object({ detection_ids: z.array(z.string().uuid()).min(1).max(20) }).parse(d),
+  )
   .handler(async ({ data }) => {
     const admin = await getAdmin();
-    const { data: det } = await admin.from("detections").select("*").eq("id", data.detection_id).single();
-    if (!det) throw new Error("Deteção não encontrada");
+    const { data: dets, error } = await admin
+      .from("detections")
+      .select("*")
+      .in("id", data.detection_ids);
+    if (error || !dets || dets.length === 0) {
+      console.error("[generateNewsletter] db error", error);
+      throw new Error("Não foi possível carregar as deteções selecionadas.");
+    }
+    // preserve user-selected order
+    const ordered = data.detection_ids
+      .map((id) => dets.find((x) => x.id === id))
+      .filter((x): x is (typeof dets)[number] => !!x);
+
     const { data: cfg } = await admin.from("app_config").select("*").eq("id", 1).single();
-    const { generateNewsletterHtml } = await import("./newsletter-ai.server");
-    const { subject, html } = await generateNewsletterHtml(
-      {
-        title: det.title,
-        summary: det.summary,
-        source_name: det.source_name,
-        source_url: det.source_url,
-        published_at: det.published_at,
-      },
+    const { generateCombinedNewsletterHtml } = await import("./newsletter-ai.server");
+    const { subject, html } = await generateCombinedNewsletterHtml(
+      ordered.map((d) => ({
+        title: d.title,
+        summary: d.summary,
+        source_name: d.source_name,
+        source_url: d.source_url,
+        published_at: d.published_at,
+      })),
       {
         logo_url: cfg?.logo_url ?? "",
         disclaimer_html: cfg?.disclaimer_html ?? "",
       },
     );
-    await admin.from("newsletters").insert({ detection_id: det.id, subject, html });
-    return { ok: true };
+
+    await admin.from("newsletters").insert({
+      detection_id: ordered[0].id,
+      detection_ids: ordered.map((d) => d.id),
+      subject,
+      html,
+    });
+    // mark as approved if still pending
+    await admin
+      .from("detections")
+      .update({ status: "approved", decided_at: new Date().toISOString() })
+      .in("id", ordered.map((d) => d.id))
+      .eq("status", "pending");
+    return { ok: true, count: ordered.length };
   });
+
 
 export const listNewsletters = createServerFn({ method: "GET" })
   .handler(async () => {
