@@ -225,13 +225,33 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
     .single();
   const alertEmail = config?.alert_email ?? "joanicapereira@gmail.com";
 
+  // Carrega exemplos de aprendizagem: últimas decisões da Eliana
+  const [{ data: approvedRows }, { data: rejectedRows }] = await Promise.all([
+    admin
+      .from("detections")
+      .select("title,summary,source_name")
+      .eq("status", "approved")
+      .order("updated_at", { ascending: false })
+      .limit(15),
+    admin
+      .from("detections")
+      .select("title,summary,source_name")
+      .eq("status", "rejected")
+      .order("updated_at", { ascending: false })
+      .limit(15),
+  ]);
+  const examples: LearningExamples = {
+    approved: approvedRows ?? [],
+    rejected: rejectedRows ?? [],
+  };
+
   const errors: { source: string; error: string }[] = [];
   let totalCreated = 0;
   let scanned = 0;
   // Scan with bounded concurrency to avoid API/backend contention.
   const results = await mapWithConcurrency((sources ?? []) as SourceRow[], SOURCE_CONCURRENCY, async (src) => {
       try {
-        const res = await scanOneSource(src, knownHashes);
+        const res = await scanOneSource(src, knownHashes, examples);
         return { ok: true as const, created: res.created };
       } catch (e) {
         return { ok: false as const, source: src.name, error: String((e as Error).message ?? e) };
