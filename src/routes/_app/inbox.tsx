@@ -34,9 +34,13 @@ function InboxPage() {
   });
 
   const selectableIds = useMemo(
-    () => (detections ?? []).filter((d) => d.status !== "rejected").map((d) => d.id),
-    [detections],
+    () =>
+      status === "approved"
+        ? (detections ?? []).map((d) => d.id)
+        : [],
+    [detections, status],
   );
+
 
   function toggle(id: string) {
     setSelected((prev) => {
