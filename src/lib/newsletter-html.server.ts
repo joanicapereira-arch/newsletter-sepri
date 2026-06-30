@@ -51,10 +51,7 @@ export function renderNewsletterHtml(parts: NewsletterParts, chrome: NewsletterC
         <img src="${esc(chrome.logoUrl)}" alt="SEPRI Group" style="max-height:60px;height:auto;display:inline-block;" />
       </td></tr>
       <tr><td style="padding:32px;">
-        <h1 style="font-size:24px;line-height:1.3;margin:0 0 8px;color:#0f172a;">${esc(parts.title)}</h1>
-        ${publishedLine}
-        <p style="font-size:17px;line-height:1.55;font-weight:600;color:#0f5e8f;margin:0 0 8px;">${esc(parts.lead)}</p>
-        ${img}
+        ${headBlock}
         <div style="font-size:15px;line-height:1.65;color:#1e293b;">${parts.bodyHtml}</div>
         ${sourceLink}
       </td></tr>
