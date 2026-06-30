@@ -108,7 +108,10 @@ export const listNewsletters = createServerFn({ method: "GET" })
       .select("id,detection_id,subject,generated_at,detections(title,source_name,source_url)")
       .order("generated_at", { ascending: false })
       .limit(100);
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("[listNewsletters] db error", error);
+      throw new Error("Não foi possível carregar as newsletters.");
+    }
     return data ?? [];
   });
 
@@ -117,7 +120,10 @@ export const getNewsletter = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const admin = await getAdmin();
     const { data: row, error } = await admin.from("newsletters").select("*").eq("id", data.id).single();
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("[getNewsletter] db error", error);
+      throw new Error("Não foi possível carregar a newsletter.");
+    }
     return row;
   });
 
