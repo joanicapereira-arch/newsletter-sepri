@@ -231,13 +231,13 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
       .from("detections")
       .select("title,summary,source_name")
       .eq("status", "approved")
-      .order("updated_at", { ascending: false })
+      .order("decided_at", { ascending: false })
       .limit(15),
     admin
       .from("detections")
       .select("title,summary,source_name")
       .eq("status", "rejected")
-      .order("updated_at", { ascending: false })
+      .order("decided_at", { ascending: false })
       .limit(15),
   ]);
   const examples: LearningExamples = {
