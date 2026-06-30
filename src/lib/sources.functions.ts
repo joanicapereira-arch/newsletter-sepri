@@ -9,7 +9,10 @@ async function getAdmin() {
 export const listSources = createServerFn({ method: "GET" }).handler(async () => {
   const a = await getAdmin();
   const { data, error } = await a.from("sources").select("*").order("name");
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error("[listSources] db error", error);
+    throw new Error("Não foi possível carregar as fontes.");
+  }
   return data ?? [];
 });
 

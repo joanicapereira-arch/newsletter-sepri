@@ -15,7 +15,10 @@ export const listDetections = createServerFn({ method: "POST" })
     let q = admin.from("detections").select("*").order("detected_at", { ascending: false }).limit(200);
     if (data.status !== "all") q = q.eq("status", data.status);
     const { data: rows, error } = await q;
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("[listDetections] db error", error);
+      throw new Error("Não foi possível carregar as deteções.");
+    }
     return rows ?? [];
   });
 
