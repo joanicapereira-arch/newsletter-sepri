@@ -83,6 +83,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "SEPRI Newsletter Bot" },
       { name: "description", content: "Monitorização automatizada de legislação SST e medicina do trabalho para a SEPRI Group" },
       { name: "robots", content: "noindex,nofollow" },
+      { property: "og:title", content: "SEPRI Newsletter Bot" },
+      { name: "twitter:title", content: "SEPRI Newsletter Bot" },
+      { property: "og:description", content: "Monitorização automatizada de legislação SST e medicina do trabalho para a SEPRI Group" },
+      { name: "twitter:description", content: "Monitorização automatizada de legislação SST e medicina do trabalho para a SEPRI Group" },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/0eab664f-34a8-422c-89df-efbcf6b1bfa5" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/0eab664f-34a8-422c-89df-efbcf6b1bfa5" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:type", content: "website" },
     ],
     links: [
       {
