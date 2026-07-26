@@ -112,14 +112,24 @@ function InboxPage() {
             as que queres incluir e gera uma newsletter.
           </p>
         </div>
-        <Button onClick={() => scanMut.mutate()} disabled={scanMut.isPending}>
-          {scanMut.isPending ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <RefreshCw className="w-4 h-4 mr-2" />
-          )}
-          Scan agora
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => backfillMut.mutate()} disabled={backfillMut.isPending}>
+            {backfillMut.isPending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4 mr-2" />
+            )}
+            Corrigir links
+          </Button>
+          <Button onClick={() => scanMut.mutate()} disabled={scanMut.isPending}>
+            {scanMut.isPending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4 mr-2" />
+            )}
+            Scan agora
+          </Button>
+        </div>
       </div>
 
       <Tabs
