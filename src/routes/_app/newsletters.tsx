@@ -18,6 +18,7 @@ export const Route = createFileRoute("/_app/newsletters")({
 });
 
 function NewslettersPage() {
+  const qc = useQueryClient();
   const [openId, setOpenId] = useState<string | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["newsletters"],
@@ -27,6 +28,15 @@ function NewslettersPage() {
     queryKey: ["newsletter", openId],
     queryFn: () => getNewsletter({ data: { id: openId! } }),
     enabled: !!openId,
+  });
+  const regenerate = useMutation({
+    mutationFn: () => regenerateAllNewsletters(),
+    onSuccess: (res) => {
+      toast.success(`${res.updated} newsletter(s) regeneradas com a nova estrutura`);
+      qc.invalidateQueries({ queryKey: ["newsletters"] });
+      qc.invalidateQueries({ queryKey: ["newsletter"] });
+    },
+    onError: () => toast.error("Falha ao regenerar newsletters"),
   });
 
   async function copyHtml(html: string) {
