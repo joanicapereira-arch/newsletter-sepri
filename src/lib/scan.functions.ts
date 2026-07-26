@@ -334,6 +334,7 @@ async function sendScanSummaryEmail(
     errors: { source: string; error: string }[];
     detections: { id: string; title: string; summary: string; source_name: string; source_url: string | null }[];
     origin: string;
+    triggeredBy: "cron" | "manual";
   },
 ) {
   const lovableKey = process.env.LOVABLE_API_KEY;
@@ -346,20 +347,24 @@ async function sendScanSummaryEmail(
     });
     return;
   }
+  const { buildApprovalUrls } = await import("./tokens.server");
   const today = new Date().toLocaleDateString("pt-PT", { day: "2-digit", month: "long", year: "numeric" });
   const inboxUrl = `${data.origin}/inbox`;
-  const detectionsHtml = data.detections.length
-    ? data.detections
-        .map(
-          (d) => `<li style="margin:0 0 12px;">
-            <strong>${escapeHtml(d.title)}</strong><br/>
-            <span style="font-size:12px;color:#64748b;">${escapeHtml(d.source_name)}</span><br/>
-            <span style="font-size:13px;color:#334155;">${escapeHtml(d.summary)}</span>
-            ${d.source_url ? `<br/><a href="${d.source_url}" style="font-size:12px;color:#0f5e8f;">Ver fonte →</a>` : ""}
-          </li>`,
-        )
-        .join("")
-    : `<li style="color:#64748b;">Sem novas deteções relevantes hoje.</li>`;
+  const detectionsHtml = data.detections
+    .map((d) => {
+      const { approveUrl, rejectUrl } = buildApprovalUrls(data.origin, d.id);
+      return `<div style="margin:0 0 20px;padding:14px 16px;border:1px solid #e2e8f0;border-radius:8px;">
+        <div style="font-size:12px;color:#64748b;margin-bottom:4px;">${escapeHtml(d.source_name)}</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px;">${escapeHtml(d.title)}</div>
+        <div style="font-size:13px;color:#334155;line-height:1.55;margin-bottom:10px;">${escapeHtml(d.summary)}</div>
+        ${d.source_url ? `<div style="margin-bottom:12px;"><a href="${d.source_url}" style="font-size:12px;color:#0f5e8f;">Ver notícia original →</a></div>` : ""}
+        <div>
+          <a href="${approveUrl}" style="background:#0f5e8f;color:#fff;padding:9px 16px;border-radius:6px;text-decoration:none;display:inline-block;font-size:13px;margin-right:6px;">✅ Aprovar</a>
+          <a href="${rejectUrl}" style="background:#e2e8f0;color:#0f172a;padding:9px 16px;border-radius:6px;text-decoration:none;display:inline-block;font-size:13px;">❌ Rejeitar</a>
+        </div>
+      </div>`;
+    })
+    .join("");
   const errorsHtml = data.errors.length
     ? `<p style="margin:16px 0 4px;font-weight:600;color:#b91c1c;">Erros (${data.errors.length}):</p>
        <ul style="padding-left:18px;color:#b91c1c;font-size:13px;">${data.errors
@@ -367,21 +372,22 @@ async function sendScanSummaryEmail(
          .join("")}</ul>`
     : "";
 
+  const kind = data.triggeredBy === "cron" ? "diário automático" : "manual";
   const html = `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#0f172a;">
-    <h2 style="color:#0f5e8f;margin:0 0 4px;">Resumo do scan diário SEPRI</h2>
+    <h2 style="color:#0f5e8f;margin:0 0 4px;">Resumo do scan ${kind} SEPRI</h2>
     <p style="margin:0 0 16px;color:#64748b;font-size:13px;">${today}</p>
     <table style="border-collapse:collapse;margin:0 0 16px;">
       <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Fontes analisadas:</td><td style="font-weight:600;">${data.scanned}</td></tr>
       <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Novas deteções:</td><td style="font-weight:600;">${data.created}</td></tr>
       <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Erros:</td><td style="font-weight:600;">${data.errors.length}</td></tr>
     </table>
-    <h3 style="margin:16px 0 8px;">Deteções desta execução</h3>
-    <ul style="padding-left:18px;">${detectionsHtml}</ul>
+    <h3 style="margin:16px 0 8px;">Novas deteções</h3>
+    ${detectionsHtml}
     ${errorsHtml}
     <p style="margin:24px 0 8px;">
       <a href="${inboxUrl}" style="background:#0f5e8f;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block;">Abrir caixa de entrada</a>
     </p>
-    <p style="font-size:11px;color:#94a3b8;margin-top:24px;">Scan automático SEPRI · executado diariamente às 07:00 (Lisboa).</p>
+    <p style="font-size:11px;color:#94a3b8;margin-top:24px;">Aprovar/Rejeitar aciona o registo diretamente — tokens válidos por 14 dias.</p>
   </div>`;
 
   try {
@@ -395,7 +401,7 @@ async function sendScanSummaryEmail(
       body: JSON.stringify({
         sender: { name: "SEPRI Newsletter Bot", email: "no-reply@sepri.pt" },
         to: [{ email: to }],
-        subject: `[SEPRI] Resumo do scan diário — ${data.created} nova(s) deteção(ões)`,
+        subject: `[SEPRI] Scan ${kind} — ${data.created} nova(s) deteção(ões)`,
         htmlContent: html,
       }),
     });
