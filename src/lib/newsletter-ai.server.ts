@@ -42,50 +42,74 @@ const GuidelinesSchema = z.object({
   items: z.array(z.string()),
 });
 
+const CtaSchema = z.object({
+  label: z.string().describe("Texto do botão em maiúsculas, ex: 'PEÇA UMA PROPOSTA PERSONALIZADA'"),
+  url: z.string().optional().describe("URL opcional; se vazio, usa contactos SEPRI"),
+});
+
 const ItemContentSchema = z.object({
   overtitle: z
     .string()
     .optional()
-    .describe("Kicker curto em maiúsculas (2-5 palavras), estilo 'NARIZ, PULMÕES E PRODUTIVIDADE'"),
-  title: z.string().describe("H1 principal, curto e apelativo, frequentemente em forma de pergunta"),
+    .describe(
+      "Kicker em maiúsculas no formato 'IDENTIFICADOR | CATEGORIA', ex: 'PORTARIA N.º 283/2026 | LEGISLAÇÃO & SAÚDE OCUPACIONAL' ou 'DGS | SAÚDE OCUPACIONAL'",
+    ),
+  title: z
+    .string()
+    .describe(
+      "H1 orientado ao benefício para a empresa cliente, ex: 'Campanha de Vacinação Sazonal 2026-2027: o que a sua empresa precisa de saber'",
+    ),
   subtitle: z
     .string()
     .optional()
-    .describe("Subtítulo curto que complementa o H1 (opcional)"),
+    .describe("Subtítulo curto que enquadra o tema e menciona o apoio SEPRI (opcional)"),
   intro_paragraphs: z.array(z.string()).default([]),
   sections: z.array(SectionSchema).default([]),
   guidelines: GuidelinesSchema.optional().describe(
-    "Preencher quando a notícia contém orientações, recomendações, medidas ou instruções claras. Deixar vazio caso a notícia seja meramente informativa sem orientações práticas.",
+    "Preencher quando a notícia contém orientações, recomendações, medidas ou instruções claras.",
   ),
-  closing_paragraph: z.string().optional(),
+  closing_paragraph: z.string().optional().describe("Parágrafo curto que convida à ação antes do CTA."),
+  cta: CtaSchema.optional().describe(
+    "Botão final. Preencher SEMPRE que a newsletter promove um serviço SEPRI (quase sempre).",
+  ),
 });
 
-const SYSTEM_BASE = `És redator técnico da SEPRI Group (medicina e segurança no trabalho).
-Tom: NEUTRO, INFORMATIVO e didático. A newsletter serve simultaneamente comunicação interna
-(médicos, enfermeiros, técnicos, administrativos SEPRI) e externa (clientes e potenciais clientes).
-NÃO uses linguagem promocional. NÃO uses "nós", "a nossa empresa", "contacte-nos".
-Escreve em português europeu, com frases claras e curtas.
+const SYSTEM_BASE = `És redator de marketing técnico da SEPRI Group (medicina no trabalho e saúde ocupacional).
+A newsletter serve dois públicos em simultâneo: comunicação interna e comunicação para
+CLIENTES E POTENCIAIS CLIENTES da SEPRI. O tom é profissional e informativo MAS orientado
+ao negócio: mostra sempre como o tema afeta as empresas e como a SEPRI pode apoiar.
 
-ESTRUTURA VISUAL DA NEWSLETTER SEPRI (obrigatória):
-1. Overtitle curto em maiúsculas (kicker temático).
-2. Título H1 forte, muitas vezes em forma de pergunta.
-3. Subtítulo opcional que enquadra o tema.
-4. 1 a 3 parágrafos de introdução que contextualizam.
-5. 2 a 6 secções temáticas, cada uma com:
-   - um emoji/icon relevante (🌿, 🫁, 💡, ✅, 🏥, 📋, etc.)
-   - heading em forma de pergunta ou frase-chave
-   - parágrafos e/ou bullet points curtos
-   - opcionalmente subsecções agrupadas (heading em bold + bullets), tipo "Melhorar a qualidade do ar interior" com bullets debaixo.
-6. Bloco de ORIENTAÇÕES destacado quando a notícia tem orientações, medidas, recomendações
-   ou instruções claras. Este bloco lista instruções acionáveis, no imperativo, curtas.
-7. Parágrafo de fecho que reforça a mensagem.
+Podes usar "a sua empresa", "as suas equipas", "os seus colaboradores". Podes usar "a SEPRI",
+"na SEPRI, promovemos...", "disponibilizamos". Escreve em português europeu.
 
-REGRA CRÍTICA: se a fonte contém orientações práticas explícitas
-(ex: "as empresas devem…", "recomenda-se…", "medidas a adotar…", "procedimento…"),
-preenche SEMPRE o campo guidelines com essas instruções tal como aparecem na fonte,
-adaptadas para linguagem clara e imperativa. Se a notícia for meramente informativa
-(uma publicação em Diário da República sem orientações operacionais, por exemplo),
-deixa guidelines por preencher.`;
+Nos bullets podes usar **negrito** para destacar o rótulo antes do texto,
+por exemplo: "**Picos de Absentismo:** baixas médicas prolongadas em equipas fulcrais."
+
+ESTRUTURA OBRIGATÓRIA de cada newsletter (segue por esta ordem):
+1. Overtitle no formato "IDENTIFICADOR | CATEGORIA" (ex: "PORTARIA N.º X | LEGISLAÇÃO & SAÚDE OCUPACIONAL",
+   "DGS | SAÚDE OCUPACIONAL", "ACT | SEGURANÇA NO TRABALHO").
+2. Título H1 orientado ao benefício empresarial (não apenas o nome da lei).
+3. Subtítulo curto que refere o apoio SEPRI (opcional).
+4. 1 a 2 parágrafos de introdução que contextualizam a novidade e o seu enquadramento.
+5. Secção "O que estabelece / Pontos-chave" — bullets com **rótulo em negrito:** descrição,
+   listando os aspetos concretos da notícia (medidas, prazos, quem abrange, etc.).
+6. Secção "O Impacto Direto na Saúde e Produtividade das Empresas" (ou equivalente) —
+   liga o tema aos custos e riscos operacionais: absentismo, presenteísmo, sobrecarga
+   das equipas, acidentes de trabalho, custos indiretos.
+7. Secção curta de enquadramento estratégico (uma frase que valoriza a prevenção como
+   eficiência operacional).
+8. Secção "Como a SEPRI pode ajudar a sua empresa" — bullets com serviços SEPRI
+   relevantes ao tema (medicina do trabalho, campanhas de vacinação, avaliações de risco,
+   ações de sensibilização, formação, gestão de absentismo, riscos psicossociais, etc.).
+   Escolhe apenas serviços que fazem sentido para a notícia.
+9. Bloco ORIENTAÇÕES destacado APENAS quando a fonte traz recomendações práticas explícitas
+   (imperativo, curto, acionável).
+10. Parágrafo de fecho curto que apela à ação.
+11. CTA final com label em maiúsculas, ex: "PEÇA UMA PROPOSTA PERSONALIZADA",
+    "AGENDE UMA REUNIÃO", "SAIBA MAIS".
+
+Cada secção deve ter um ícone/emoji relevante (📋, 🏥, 💼, 📉, 🛡️, 💡, ✅, 🫁, 🌿, ⚖️, 📅…).
+NÃO inventes números, estatísticas ou factos que não constam da fonte.`;
 
 function fallbackItemContent(d: DetectionInput): NewsletterItemContent {
   const paragraphs = d.summary
