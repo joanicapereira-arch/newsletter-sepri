@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getConfig, updateConfig, checkIsAdmin } from "@/lib/sources.functions";
+import { sendTestAlertEmail } from "@/lib/scan.functions";
+import { Mail } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +33,12 @@ function ConfigPage() {
       qc.invalidateQueries({ queryKey: ["config"] });
     },
     onError: (e: Error) => toast.error(e.message),
+  });
+  const testEmail = useMutation({
+    mutationFn: () => sendTestAlertEmail(),
+    onSuccess: (r) => toast.success(`Email de teste enviado para ${r.to}. Verifica a caixa de entrada (e o spam).`),
+    onError: (e: Error) =>
+      toast.error(`Falha ao enviar: ${e.message}`, { duration: 8000 }),
   });
 
   return (
@@ -77,9 +85,25 @@ function ConfigPage() {
               Recebe os alertas de novas deteções com botões de aprovar/rejeitar.
             </p>
           </div>
-          <Button onClick={() => save.mutate()} disabled={save.isPending}>
-            Guardar
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => save.mutate()} disabled={save.isPending}>
+              Guardar
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => testEmail.mutate()}
+              disabled={testEmail.isPending}
+            >
+              <Mail className="w-4 h-4 mr-1" />
+              {testEmail.isPending ? "A enviar…" : "Enviar email de teste"}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Usa este botão para confirmar que a ligação ao Brevo está configurada, sem esperar
+            por uma deteção real. Se falhar, a mensagem de erro indica exatamente o que falta
+            configurar (ex: conector Brevo por ligar).
+          </p>
         </CardContent>
       </Card>
 
