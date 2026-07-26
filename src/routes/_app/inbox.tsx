@@ -4,8 +4,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   listDetections,
-  approveDetection,
-  rejectDetection,
+  categorizeDetection,
   generateNewsletterFromSelection,
 } from "@/lib/detections.functions";
 import { triggerManualScan } from "@/lib/scan.functions";
@@ -14,14 +13,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Check, X, ExternalLink, RefreshCw, Loader2, Sparkles } from "lucide-react";
+import { Info, Flame, X, ExternalLink, RefreshCw, Loader2, Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/_app/inbox")({
   head: () => ({ meta: [{ title: "Caixa de entrada · SEPRI" }] }),
   component: InboxPage,
 });
 
-type Status = "pending" | "approved" | "rejected" | "all";
+type Status = "pending" | "informativo" | "prioritario" | "rejected";
+type Category = "informativo" | "prioritario" | "rejected";
 
 function InboxPage() {
   const [status, setStatus] = useState<Status>("pending");
@@ -33,14 +33,12 @@ function InboxPage() {
     queryFn: () => listDetections({ data: { status } }),
   });
 
-  const selectableIds = useMemo(
-    () =>
-      status === "approved"
-        ? (detections ?? []).map((d) => d.id)
-        : [],
-    [detections, status],
-  );
+  const isCategorized = status === "informativo" || status === "prioritario";
 
+  const selectableIds = useMemo(
+    () => (isCategorized ? (detections ?? []).map((d) => d.id) : []),
+    [detections, isCategorized],
+  );
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -57,18 +55,17 @@ function InboxPage() {
     setSelected(new Set(selectableIds));
   }
 
-  const approveMut = useMutation({
-    mutationFn: (id: string) => approveDetection({ data: { detection_id: id } }),
-    onSuccess: () => {
-      toast.success("Aprovada");
-      qc.invalidateQueries({ queryKey: ["detections"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  const rejectMut = useMutation({
-    mutationFn: (id: string) => rejectDetection({ data: { detection_id: id } }),
-    onSuccess: () => {
-      toast.success("Rejeitada");
+  const categorizeMut = useMutation({
+    mutationFn: ({ id, category }: { id: string; category: Category }) =>
+      categorizeDetection({ data: { detection_id: id, category } }),
+    onSuccess: (_r, vars) => {
+      const label =
+        vars.category === "informativo"
+          ? "Marcada como Informativo"
+          : vars.category === "prioritario"
+            ? "Marcada como Prioritário"
+            : "Rejeitada";
+      toast.success(label);
       qc.invalidateQueries({ queryKey: ["detections"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -99,7 +96,8 @@ function InboxPage() {
         <div>
           <h1 className="text-2xl font-bold">Caixa de entrada</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Seleciona as notícias que queres incluir e gera uma newsletter com todas.
+            Categoriza cada notícia como Informativo, Prioritário ou Rejeitar. Depois seleciona
+            as que queres incluir e gera uma newsletter.
           </p>
         </div>
         <Button onClick={() => scanMut.mutate()} disabled={scanMut.isPending}>
@@ -122,25 +120,24 @@ function InboxPage() {
       >
         <TabsList>
           <TabsTrigger value="pending">Pendentes</TabsTrigger>
-          <TabsTrigger value="approved">Aprovadas</TabsTrigger>
-          <TabsTrigger value="rejected">Rejeitadas</TabsTrigger>
-          <TabsTrigger value="all">Todas</TabsTrigger>
+          <TabsTrigger value="informativo">Informativo</TabsTrigger>
+          <TabsTrigger value="prioritario">Prioritário</TabsTrigger>
+          <TabsTrigger value="rejected">Rejeitado</TabsTrigger>
         </TabsList>
       </Tabs>
 
       {status === "pending" && (
         <div className="border rounded-md p-3 mb-4 bg-muted/30 text-sm text-muted-foreground">
-          Começa por <strong>aprovar</strong> ou <strong>rejeitar</strong> as notícias detetadas.
-          Depois, na secção <strong>Aprovadas</strong>, podes selecionar várias e clicar em
-          <strong> Gerar newsletter</strong> para criar uma newsletter combinada.
+          Começa por classificar cada notícia como <strong>Informativo</strong>,{" "}
+          <strong>Prioritário</strong> ou <strong>Rejeitar</strong>. Depois, nas secções{" "}
+          <strong>Informativo</strong> ou <strong>Prioritário</strong>, seleciona várias e clica em{" "}
+          <strong>Gerar newsletter</strong> para criar uma newsletter combinada.
         </div>
       )}
 
-      {status === "approved" && selectableIds.length > 0 && (
+      {isCategorized && selectableIds.length > 0 && (
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border rounded-md p-3 mb-4 flex items-center gap-3 flex-wrap">
-          <span className="text-sm font-medium">
-            {selected.size} selecionada(s)
-          </span>
+          <span className="text-sm font-medium">{selected.size} selecionada(s)</span>
           <Button size="sm" variant="ghost" onClick={selectAll}>
             Selecionar todas
           </Button>
@@ -166,7 +163,6 @@ function InboxPage() {
         </div>
       )}
 
-
       {isLoading && <p className="text-muted-foreground">A carregar…</p>}
 
       {detections && detections.length === 0 && (
@@ -179,8 +175,9 @@ function InboxPage() {
 
       <div className="space-y-3">
         {detections?.map((d) => {
-          const isSelectable = status === "approved";
+          const isSelectable = isCategorized;
           const checked = selected.has(d.id);
+          const pending = categorizeMut.isPending && categorizeMut.variables?.id === d.id;
           return (
             <Card key={d.id} className={checked ? "ring-2 ring-primary" : ""}>
               <CardHeader className="pb-3">
@@ -196,12 +193,13 @@ function InboxPage() {
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <Badge variant="secondary">{d.source_name}</Badge>
                       <Badge variant="outline">Relevância {d.relevance_score}</Badge>
-                      {d.status === "approved" && (
-                        <Badge className="bg-green-600">Aprovada</Badge>
+                      {d.status === "informativo" && (
+                        <Badge className="bg-sky-600">Informativo</Badge>
                       )}
-                      {d.status === "rejected" && (
-                        <Badge variant="destructive">Rejeitada</Badge>
+                      {d.status === "prioritario" && (
+                        <Badge className="bg-orange-600">Prioritário</Badge>
                       )}
+                      {d.status === "rejected" && <Badge variant="destructive">Rejeitado</Badge>}
                     </div>
                     <CardTitle className="text-lg">{d.title}</CardTitle>
                   </div>
@@ -232,18 +230,25 @@ function InboxPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => rejectMut.mutate(d.id)}
-                        disabled={rejectMut.isPending}
+                        onClick={() => categorizeMut.mutate({ id: d.id, category: "rejected" })}
+                        disabled={pending}
                       >
                         <X className="w-4 h-4 mr-1" /> Rejeitar
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => approveMut.mutate(d.id)}
-                        disabled={approveMut.isPending}
+                        onClick={() => categorizeMut.mutate({ id: d.id, category: "informativo" })}
+                        disabled={pending}
                       >
-                        <Check className="w-4 h-4 mr-1" /> Aprovar
+                        <Info className="w-4 h-4 mr-1" /> Informativo
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => categorizeMut.mutate({ id: d.id, category: "prioritario" })}
+                        disabled={pending}
+                      >
+                        <Flame className="w-4 h-4 mr-1" /> Prioritário
                       </Button>
                     </>
                   )}
