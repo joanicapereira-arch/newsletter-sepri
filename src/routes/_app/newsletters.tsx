@@ -1,12 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { listNewsletters, getNewsletter } from "@/lib/detections.functions";
+import {
+  listNewsletters,
+  getNewsletter,
+  regenerateAllNewsletters,
+} from "@/lib/detections.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Download, Eye } from "lucide-react";
+import { Copy, Download, Eye, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/_app/newsletters")({
   head: () => ({ meta: [{ title: "Newsletters · SEPRI" }] }),
