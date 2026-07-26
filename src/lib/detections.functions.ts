@@ -33,7 +33,7 @@ export const categorizeDetection = createServerFn({ method: "POST" })
     z
       .object({
         detection_id: z.string().uuid(),
-        category: z.enum(["informativo", "prioritario", "rejected"]),
+        category: z.enum(["pending", "informativo", "prioritario", "rejected"]),
       })
       .parse(d),
   )
@@ -41,10 +41,14 @@ export const categorizeDetection = createServerFn({ method: "POST" })
     const admin = await getAdmin();
     await admin
       .from("detections")
-      .update({ status: data.category, decided_at: new Date().toISOString() })
+      .update({
+        status: data.category,
+        decided_at: data.category === "pending" ? null : new Date().toISOString(),
+      })
       .eq("id", data.detection_id);
     return { ok: true };
   });
+
 
 export const generateNewsletterFromSelection = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>

@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Info, Flame, X, ExternalLink, RefreshCw, Loader2, Sparkles } from "lucide-react";
+import { Info, Flame, X, ExternalLink, RefreshCw, Loader2, Sparkles, Undo2 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/inbox")({
   head: () => ({ meta: [{ title: "Caixa de entrada · SEPRI" }] }),
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_app/inbox")({
 });
 
 type Status = "pending" | "informativo" | "prioritario" | "rejected";
-type Category = "informativo" | "prioritario" | "rejected";
+type Category = "pending" | "informativo" | "prioritario" | "rejected";
 
 function InboxPage() {
   const [status, setStatus] = useState<Status>("pending");
@@ -64,12 +64,15 @@ function InboxPage() {
           ? "Marcada como Informativo"
           : vars.category === "prioritario"
             ? "Marcada como Prioritário"
-            : "Rejeitada";
+            : vars.category === "rejected"
+              ? "Rejeitada"
+              : "Devolvida a Pendentes";
       toast.success(label);
       qc.invalidateQueries({ queryKey: ["detections"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
   const scanMut = useMutation({
     mutationFn: () => triggerManualScan(),
     onSuccess: (r) => {
@@ -225,33 +228,47 @@ function InboxPage() {
                       : ""}
                     Detetada {new Date(d.detected_at).toLocaleString("pt-PT")}
                   </span>
-                  {d.status === "pending" && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => categorizeMut.mutate({ id: d.id, category: "rejected" })}
-                        disabled={pending}
-                      >
-                        <X className="w-4 h-4 mr-1" /> Rejeitar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => categorizeMut.mutate({ id: d.id, category: "informativo" })}
-                        disabled={pending}
-                      >
-                        <Info className="w-4 h-4 mr-1" /> Informativo
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => categorizeMut.mutate({ id: d.id, category: "prioritario" })}
-                        disabled={pending}
-                      >
-                        <Flame className="w-4 h-4 mr-1" /> Prioritário
-                      </Button>
-                    </>
+                  {d.status !== "informativo" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => categorizeMut.mutate({ id: d.id, category: "informativo" })}
+                      disabled={pending}
+                    >
+                      <Info className="w-4 h-4 mr-1" /> Informativo
+                    </Button>
                   )}
+                  {d.status !== "prioritario" && (
+                    <Button
+                      size="sm"
+                      variant={d.status === "pending" ? "default" : "outline"}
+                      onClick={() => categorizeMut.mutate({ id: d.id, category: "prioritario" })}
+                      disabled={pending}
+                    >
+                      <Flame className="w-4 h-4 mr-1" /> Prioritário
+                    </Button>
+                  )}
+                  {d.status !== "rejected" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => categorizeMut.mutate({ id: d.id, category: "rejected" })}
+                      disabled={pending}
+                    >
+                      <X className="w-4 h-4 mr-1" /> Rejeitar
+                    </Button>
+                  )}
+                  {d.status !== "pending" && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => categorizeMut.mutate({ id: d.id, category: "pending" })}
+                      disabled={pending}
+                    >
+                      <Undo2 className="w-4 h-4 mr-1" /> Voltar a Pendentes
+                    </Button>
+                  )}
+
                 </div>
               </CardContent>
             </Card>
