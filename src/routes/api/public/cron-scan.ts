@@ -12,7 +12,7 @@ export const Route = createFileRoute("/api/public/cron-scan")({
           return Response.json({ ok: true, ...result });
         } catch (e) {
           console.error("cron-scan failed", e);
-          return Response.json({ ok: false, error: String((e as Error).message ?? e) }, { status: 500 });
+          return Response.json({ ok: false, error: "Ocorreu um erro ao processar o pedido." }, { status: 500 });
         }
       },
     },
