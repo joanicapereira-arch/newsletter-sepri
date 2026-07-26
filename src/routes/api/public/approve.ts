@@ -77,7 +77,7 @@ async function handle(action: "approve" | "reject", token: string) {
     await supabaseAdmin.from("newsletters").insert({ detection_id: det.id, subject, html });
     await supabaseAdmin
       .from("detections")
-      .update({ status: "approved", decided_at: new Date().toISOString() })
+      .update({ status: "informativo", decided_at: new Date().toISOString() })
       .eq("id", det.id);
   } catch (e) {
     console.error("approve failed", e);
