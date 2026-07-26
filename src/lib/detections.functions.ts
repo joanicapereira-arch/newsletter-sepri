@@ -49,6 +49,34 @@ export const categorizeDetection = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Correção manual do link de uma deteção. A extração automática (Firecrawl +
+ * IA + verificação por fetch) reduz muito os links errados, mas alguns sites
+ * governamentais têm estruturas difíceis de mapear automaticamente — isto dá
+ * à Eliana uma forma imediata de corrigir um link a partir da Inbox, sem
+ * esperar por um novo scan.
+ */
+export const updateDetectionUrl = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        detection_id: z.string().uuid(),
+        source_url: z.string().url(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
+    const { error } = await admin
+      .from("detections")
+      .update({ source_url: data.source_url })
+      .eq("id", data.detection_id);
+    if (error) {
+      console.error("[updateDetectionUrl] db error", error);
+      throw new Error("Não foi possível guardar o link.");
+    }
+    return { ok: true };
+  });
 
 export const generateNewsletterFromSelection = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
@@ -64,7 +92,6 @@ export const generateNewsletterFromSelection = createServerFn({ method: "POST" }
       console.error("[generateNewsletter] db error", error);
       throw new Error("Não foi possível carregar as deteções selecionadas.");
     }
-    // preserve user-selected order
     const ordered = data.detection_ids
       .map((id) => dets.find((x) => x.id === id))
       .filter((x): x is (typeof dets)[number] => !!x);
@@ -91,7 +118,6 @@ export const generateNewsletterFromSelection = createServerFn({ method: "POST" }
       subject,
       html,
     });
-    // Bump any still-pending items to 'informativo' when generating the newsletter
     await admin
       .from("detections")
       .update({ status: "informativo", decided_at: new Date().toISOString() })
@@ -99,7 +125,6 @@ export const generateNewsletterFromSelection = createServerFn({ method: "POST" }
       .eq("status", "pending");
     return { ok: true, count: ordered.length };
   });
-
 
 export const listNewsletters = createServerFn({ method: "GET" })
   .handler(async () => {
@@ -193,5 +218,3 @@ export const regenerateAllNewsletters = createServerFn({ method: "POST" })
     }
     return { updated };
   });
-
-
