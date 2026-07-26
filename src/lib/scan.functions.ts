@@ -66,7 +66,7 @@ async function scanOneSource(source: SourceRow, knownHashes: Set<string>, exampl
       }),
     }),
     system: `És um analista que monitoriza legislação e técnica para a SEPRI Group (medicina e segurança no trabalho em Portugal).
-Recebes conteúdo bruto de uma fonte (pode incluir várias páginas concatenadas) e devolves SÓ as novidades genuinamente RELEVANTES para os temas SEPRI:
+Recebes conteúdo bruto de uma fonte (pode incluir várias páginas concatenadas + uma lista de URLs candidatas) e devolves SÓ as novidades genuinamente RELEVANTES para os temas SEPRI:
 medicina do trabalho, segurança no trabalho (SST), riscos psicossociais, autoproteção de edifícios e incêndios,
 legionella, formação obrigatória, Lei 102/2009, Código do Trabalho, exames a trabalhadores expostos,
 campanhas EU-OSHA, alterações climáticas e trabalho. Para a Ordem dos Psicólogos, APENAS Psicologia do Trabalho.
@@ -74,21 +74,38 @@ Ignora notícias institucionais genéricas, eventos sem impacto técnico, e tudo
 JANELA TEMPORAL: considera APENAS itens publicados entre ${fmt(cutoff)} e ${fmt(today)} (últimos 90 dias). Se a data não estiver visível mas o contexto indicar que é recente (ex: ainda em vigor, agenda futura), inclui; se claramente for antigo, ignora.
 Devolve até 8 itens. Se não houver nada relevante, devolve items: [].
 published_at: data ISO (YYYY-MM-DD) se conseguires inferir, senão null.
-relevance_score: 0-100 (100 = altamente crítico).${renderExamples(examples)}`,
+relevance_score: 0-100 (100 = altamente crítico).
+
+⚠️ REGRA CRÍTICA — source_url:
+- Cada item TEM de ter a URL ESPECÍFICA da notícia/diploma/página, NUNCA a URL raiz da fonte (${source.url}).
+- Procura a URL correta na lista de "URLs candidatas recentes/temáticas" ou nos links dentro do markdown (ex: em cabeçalhos [título](url), listas de notícias, "ler mais", "detalhe", etc.).
+- Para o Diário da República, usa a URL de detalhe do diploma (ex: https://diariodarepublica.pt/dr/detalhe/...).
+- Para o ACT, a URL da página temática específica (ex: https://portal.act.gov.pt/Pages/xxx.aspx).
+- Se não conseguires identificar uma URL específica e concreta para o item, DEIXA source_url a null — nunca uses a URL raiz como preenchimento.${renderExamples(examples)}`,
     prompt: `Fonte: ${source.name}
-URL raiz: ${source.url}
+URL raiz (NÃO usar como source_url de itens): ${source.url}
 Palavras-chave de interesse: ${source.keywords.join(", ")}
 Páginas analisadas: ${deep.pages}
 
-Conteúdo (markdown, várias páginas):
+Conteúdo (markdown, várias páginas + URLs candidatas):
 ---
 ${content}
 ---
 
-Extrai novidades relevantes dos últimos 90 dias.`,
+Extrai novidades relevantes dos últimos 90 dias, cada uma com a sua URL específica.`,
   });
 
-  const items = output.items.filter((i) => i.title && i.summary && i.relevance_score >= 40);
+  const items = output.items
+    .filter((i) => i.title && i.summary && i.relevance_score >= 40)
+    .map((i) => {
+      // Nunca aceitar a URL raiz da fonte como source_url do item.
+      const url = i.source_url?.trim();
+      const normalized =
+        !url || url === source.url || url.replace(/\/$/, "") === source.url.replace(/\/$/, "")
+          ? null
+          : url;
+      return { ...i, source_url: normalized };
+    });
 
   // Fallback: para itens sem published_at, faz scrape rápido do source_url
   // e pede à IA para extrair APENAS a data de publicação.
@@ -133,7 +150,7 @@ Extrai novidades relevantes dos últimos 90 dias.`,
       source_name: source.name,
       title: item.title,
       summary: item.summary,
-      source_url: item.source_url ?? source.url,
+      source_url: item.source_url,
       content_hash: hash,
       relevance_score: item.relevance_score,
       published_at: item.published_at ?? null,
@@ -260,7 +277,7 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
     admin
       .from("detections")
       .select("title,summary,source_name")
-      .eq("status", "approved")
+      .in("status", ["informativo", "prioritario"])
       .order("decided_at", { ascending: false })
       .limit(15),
     admin

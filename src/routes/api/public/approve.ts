@@ -31,10 +31,16 @@ async function handle(action: "approve" | "reject", token: string) {
     });
   }
   if (det.status !== "pending") {
+    const label =
+      det.status === "rejected"
+        ? "rejeitada"
+        : det.status === "prioritario"
+          ? "prioritária"
+          : "informativa";
     return new Response(
       page(
         "Já processada",
-        `<p>Esta deteção já tinha sido marcada como <strong>${det.status === "approved" ? "aprovada" : "rejeitada"}</strong>.</p>`,
+        `<p>Esta deteção já tinha sido marcada como <strong>${label}</strong>.</p>`,
         "#64748b",
       ),
       { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } },
@@ -71,7 +77,7 @@ async function handle(action: "approve" | "reject", token: string) {
     await supabaseAdmin.from("newsletters").insert({ detection_id: det.id, subject, html });
     await supabaseAdmin
       .from("detections")
-      .update({ status: "approved", decided_at: new Date().toISOString() })
+      .update({ status: "informativo", decided_at: new Date().toISOString() })
       .eq("id", det.id);
   } catch (e) {
     console.error("approve failed", e);
