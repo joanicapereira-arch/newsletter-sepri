@@ -4,7 +4,7 @@ const FC_BASE = "https://api.firecrawl.dev/v2";
 export interface FirecrawlScrapeResult {
   markdown?: string;
   links?: string[];
-  metadata?: { title?: string; sourceURL?: string };
+  metadata?: { title?: string; sourceURL?: string; statusCode?: number };
 }
 
 function authHeaders() {
@@ -158,25 +158,96 @@ function tokens(s: string): Set<string> {
   return new Set(parts);
 }
 
-export function resolveUrlForTitle(
+/**
+ * Devolve os melhores candidatos a URL específica para um título, ordenados
+ * por relevância (overlap de tokens entre o título e o texto da hiperligação).
+ * Ao contrário da versão anterior (que devolvia só o "vencedor"), aqui
+ * devolvemos uma lista para que o chamador possa validar cada candidato
+ * (ex: confirmar que a página existe e fala mesmo do assunto) e avançar
+ * para o próximo se o primeiro falhar a validação.
+ */
+export function resolveUrlCandidatesForTitle(
   title: string,
   links: LinkRef[],
   rootUrl: string,
-): string | null {
+  opts: { minScore?: number; limit?: number } = {},
+): string[] {
+  const minScore = opts.minScore ?? 0.35;
+  const limit = opts.limit ?? 3;
   const rootNorm = rootUrl.replace(/\/$/, "");
   const tw = tokens(title);
-  if (tw.size < 2) return null;
-  let best: { score: number; url: string | null } = { score: 0, url: null };
+  if (tw.size < 2) return [];
+  const scored: { score: number; url: string }[] = [];
+  const seenUrls = new Set<string>();
   for (const l of links) {
     if (!l.url || l.url.replace(/\/$/, "") === rootNorm) continue;
+    if (seenUrls.has(l.url)) continue;
     const lw = tokens(l.text);
     if (!lw.size) continue;
     let overlap = 0;
     for (const w of tw) if (lw.has(w)) overlap++;
     const score = overlap / tw.size;
-    if (score > best.score) best = { score, url: l.url };
+    if (score >= minScore) {
+      scored.push({ score, url: l.url });
+      seenUrls.add(l.url);
+    }
   }
-  return best.score >= 0.45 ? best.url : null;
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((s) => s.url);
 }
 
+/** @deprecated usa resolveUrlCandidatesForTitle — mantido para compatibilidade. */
+export function resolveUrlForTitle(title: string, links: LinkRef[], rootUrl: string): string | null {
+  return resolveUrlCandidatesForTitle(title, links, rootUrl, { minScore: 0.45, limit: 1 })[0] ?? null;
+}
 
+/**
+ * Confirma que uma URL candidata a "link específico da notícia" é válida:
+ * 1. Responde com sucesso (segue redirects; aceita 200-299).
+ * 2. O conteúdo da página tem alguma sobreposição de vocabulário com o
+ *    título detetado — evita aceitar páginas de listagem/genéricas ou URLs
+ *    alucinadas pela IA que por acaso não coincidem com a raiz da fonte
+ *    mas também não são a notícia em causa.
+ * Devolve a URL final (após redirects) se válida, ou null caso contrário.
+ */
+export async function verifyArticleUrl(
+  url: string,
+  title: string,
+  timeoutMs = 7000,
+): Promise<string | null> {
+  let finalUrl = url;
+  let text = "";
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      signal: timeoutSignal(timeoutMs),
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; SEPRI-Monitor/1.0)" },
+    });
+    if (!res.ok) return null;
+    finalUrl = res.url || url;
+    text = await res.text();
+  } catch {
+    return null;
+  }
+
+  if (text.replace(/<[^>]+>/g, " ").trim().length < 300) {
+    try {
+      const scraped = await firecrawlScrape(finalUrl, 300, Math.min(timeoutMs, 6000));
+      if (scraped?.markdown) text = scraped.markdown;
+    } catch {
+      /* mantém o texto (curto) já obtido */
+    }
+  }
+
+  const pageTokens = tokens(text.slice(0, 6000));
+  const titleTokens = tokens(title);
+  if (titleTokens.size === 0) return finalUrl;
+  let overlap = 0;
+  for (const t of titleTokens) if (pageTokens.has(t)) overlap++;
+  const ratio = overlap / titleTokens.size;
+  if (ratio >= 0.25 || overlap >= 2) return finalUrl;
+  return null;
+}
