@@ -100,12 +100,17 @@ Extrai novidades relevantes dos últimos 90 dias, cada uma com a sua URL especí
     .map((i) => {
       // Nunca aceitar a URL raiz da fonte como source_url do item.
       const url = i.source_url?.trim();
-      const normalized =
+      let normalized: string | null =
         !url || url === source.url || url.replace(/\/$/, "") === source.url.replace(/\/$/, "")
           ? null
           : url;
+      // Fallback: tentar resolver via fuzzy match título→link do markdown raspado
+      if (!normalized) {
+        normalized = resolveUrlForTitle(i.title, deep.links, source.url);
+      }
       return { ...i, source_url: normalized };
     });
+
 
   // Fallback: para itens sem published_at, faz scrape rápido do source_url
   // e pede à IA para extrair APENAS a data de publicação.
