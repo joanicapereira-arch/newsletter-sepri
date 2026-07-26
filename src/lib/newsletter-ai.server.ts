@@ -39,22 +39,23 @@ const SectionSchema = z.object({
 const GuidelinesSchema = z.object({
   heading: z.string(),
   intro: z.string().optional(),
-  items: z.array(z.string()).min(1),
+  items: z.array(z.string()),
 });
 
 const ItemContentSchema = z.object({
   overtitle: z
     .string()
+    .optional()
     .describe("Kicker curto em maiúsculas (2-5 palavras), estilo 'NARIZ, PULMÕES E PRODUTIVIDADE'"),
   title: z.string().describe("H1 principal, curto e apelativo, frequentemente em forma de pergunta"),
   subtitle: z
     .string()
     .optional()
     .describe("Subtítulo curto que complementa o H1 (opcional)"),
-  intro_paragraphs: z.array(z.string()).min(1).max(3),
-  sections: z.array(SectionSchema).min(2).max(6),
+  intro_paragraphs: z.array(z.string()).default([]),
+  sections: z.array(SectionSchema).default([]),
   guidelines: GuidelinesSchema.optional().describe(
-    "Preencher OBRIGATORIAMENTE quando a notícia contém orientações, recomendações, medidas ou instruções claras. Deixar vazio caso a notícia seja meramente informativa sem orientações práticas.",
+    "Preencher quando a notícia contém orientações, recomendações, medidas ou instruções claras. Deixar vazio caso a notícia seja meramente informativa sem orientações práticas.",
   ),
   closing_paragraph: z.string().optional(),
 });
@@ -86,44 +87,64 @@ adaptadas para linguagem clara e imperativa. Se a notícia for meramente informa
 (uma publicação em Diário da República sem orientações operacionais, por exemplo),
 deixa guidelines por preencher.`;
 
+function fallbackItemContent(d: DetectionInput): NewsletterItemContent {
+  const paragraphs = d.summary
+    .split(/\n{2,}|\.\s+(?=[A-ZÀ-Ú])/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+  return {
+    title: d.title,
+    intro_paragraphs: paragraphs.length ? paragraphs.slice(0, 2) : [d.summary],
+    sections: paragraphs.length > 2
+      ? [{ icon: "📌", heading: "Destaques", paragraphs: paragraphs.slice(2) }]
+      : [],
+    source_name: d.source_name,
+    source_url: d.source_url,
+    published_at: d.published_at ?? null,
+  };
+}
+
 export async function generateNewsletterHtml(d: DetectionInput, chrome: ChromeInput) {
   const ai = createLovableAi(requireLovableApiKey());
-  const { output } = await generateText({
-    model: ai(MODEL),
-    output: Output.object({
-      schema: z.object({
-        subject: z.string().describe("Assunto Brevo, até 80 caracteres"),
-        content: ItemContentSchema,
+  let subject = d.title.slice(0, 80);
+  let content: NewsletterItemContent;
+  try {
+    const { output } = await generateText({
+      model: ai(MODEL),
+      output: Output.object({
+        schema: z.object({
+          subject: z.string().describe("Assunto Brevo, até 80 caracteres"),
+          content: ItemContentSchema,
+        }),
       }),
-    }),
-    system: SYSTEM_BASE,
-    prompt: `Fonte: ${d.source_name}
+      system: SYSTEM_BASE,
+      prompt: `Fonte: ${d.source_name}
 Título detetado: ${d.title}
 Resumo/conteúdo: ${d.summary}
 ${d.source_url ? `URL: ${d.source_url}` : ""}
 ${d.published_at ? `Publicado: ${d.published_at}` : ""}
 
 Redige a newsletter completa seguindo a estrutura visual SEPRI.`,
-  });
+    });
+    subject = output.subject;
+    content = {
+      ...output.content,
+      source_name: d.source_name,
+      source_url: d.source_url,
+      published_at: d.published_at ?? null,
+    };
+  } catch (err) {
+    console.error("[newsletter-ai] generateNewsletterHtml fallback:", err);
+    content = fallbackItemContent(d);
+  }
 
-  const item: NewsletterItemContent = {
-    ...output.content,
-    source_name: d.source_name,
-    source_url: d.source_url,
-    published_at: d.published_at ?? null,
-  };
-
-  const doc: NewsletterDocument = {
-    subject: output.subject,
-    items: [item],
-  };
-
+  const doc: NewsletterDocument = { subject, items: [content] };
   const html = renderNewsletterHtml(doc, {
     logoUrl: chrome.logo_url,
     disclaimerHtml: chrome.disclaimer_html,
   });
-
-  return { subject: output.subject, html };
+  return { subject, html };
 }
 
 export async function generateCombinedNewsletterHtml(
@@ -131,27 +152,31 @@ export async function generateCombinedNewsletterHtml(
   chrome: ChromeInput,
 ) {
   const ai = createLovableAi(requireLovableApiKey());
-  const { output } = await generateText({
-    model: ai(MODEL),
-    output: Output.object({
-      schema: z.object({
-        subject: z.string().describe("Assunto Brevo único, até 80 caracteres, que resume o conjunto"),
-        intro: z.object({
-          overtitle: z.string().optional(),
-          title: z.string(),
-          lead: z.string(),
+  let subject = items.length === 1 ? items[0].title.slice(0, 80) : "Atualizações SEPRI";
+  let intro: NewsletterDocument["composite_intro"] | undefined;
+  let enrichedItems: NewsletterItemContent[];
+  try {
+    const { output } = await generateText({
+      model: ai(MODEL),
+      output: Output.object({
+        schema: z.object({
+          subject: z.string().describe("Assunto Brevo único, até 80 caracteres, que resume o conjunto"),
+          intro: z.object({
+            overtitle: z.string().optional(),
+            title: z.string(),
+            lead: z.string(),
+          }),
+          items: z.array(ItemContentSchema).min(1),
         }),
-        items: z.array(ItemContentSchema).min(1),
       }),
-    }),
-    system: `${SYSTEM_BASE}
+      system: `${SYSTEM_BASE}
 
 Vais redigir UMA newsletter que agrega várias atualizações. Escreve um bloco de introdução
 comum (overtitle opcional, título H1 unificador e lead de 1-2 frases) e depois um bloco
 completo para cada atualização, seguindo a mesma estrutura visual (overtitle, título,
 subtítulo opcional, intro, secções com emojis, orientações quando aplicável, fecho).
 Mantém a ordem original das atualizações.`,
-    prompt: `Atualizações a incluir (pela ordem):
+      prompt: `Atualizações a incluir (pela ordem):
 
 ${items
   .map(
@@ -165,18 +190,30 @@ Resumo: ${d.summary}${d.source_url ? `\nURL: ${d.source_url}` : ""}${
   .join("\n\n")}
 
 Redige a newsletter agregada.`,
-  });
-
-  const enrichedItems: NewsletterItemContent[] = output.items.map((it, idx) => ({
-    ...it,
-    source_name: items[idx]?.source_name,
-    source_url: items[idx]?.source_url ?? null,
-    published_at: items[idx]?.published_at ?? null,
-  }));
+    });
+    subject = output.subject;
+    intro = output.intro;
+    enrichedItems = output.items.map((it, idx) => ({
+      ...it,
+      source_name: items[idx]?.source_name,
+      source_url: items[idx]?.source_url ?? null,
+      published_at: items[idx]?.published_at ?? null,
+    }));
+    // If AI returned fewer items than requested, fill the rest with fallbacks
+    for (let i = enrichedItems.length; i < items.length; i++) {
+      enrichedItems.push(fallbackItemContent(items[i]));
+    }
+  } catch (err) {
+    console.error("[newsletter-ai] generateCombinedNewsletterHtml fallback:", err);
+    enrichedItems = items.map(fallbackItemContent);
+    intro = items.length > 1
+      ? { title: "Atualizações SEPRI", lead: "Resumo das últimas atualizações relevantes." }
+      : undefined;
+  }
 
   const doc: NewsletterDocument = {
-    subject: output.subject,
-    composite_intro: output.intro,
+    subject,
+    composite_intro: intro,
     items: enrichedItems,
   };
 
@@ -185,5 +222,5 @@ Redige a newsletter agregada.`,
     disclaimerHtml: chrome.disclaimer_html,
   });
 
-  return { subject: output.subject, html };
+  return { subject, html };
 }
