@@ -52,17 +52,6 @@ function NewslettersPage() {
             HTML pronto a copiar para Brevo. Cada item corresponde a uma deteção aprovada.
           </p>
         </div>
-        {data && data.length > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => regenerate.mutate()}
-            disabled={regenerate.isPending}
-          >
-            <RefreshCw className={`w-4 h-4 mr-1 ${regenerate.isPending ? "animate-spin" : ""}`} />
-            {regenerate.isPending ? "A regenerar…" : "Aplicar nova estrutura"}
-          </Button>
-        )}
       </div>
 
       {isLoading && <p className="text-muted-foreground">A carregar…</p>}
