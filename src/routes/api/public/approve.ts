@@ -81,7 +81,7 @@ async function handle(action: "approve" | "reject", token: string) {
       .eq("id", det.id);
   } catch (e) {
     console.error("approve failed", e);
-    return new Response(page("Erro", `<p>Falha ao gerar newsletter: ${escapeHtml(String((e as Error).message ?? e))}</p>`, "#dc2626"), {
+    return new Response(page("Erro", `<p>Ocorreu um erro ao processar o pedido. Tente novamente mais tarde.</p>`, "#dc2626"), {
       status: 500,
       headers: { "Content-Type": "text/html; charset=utf-8" },
     });
