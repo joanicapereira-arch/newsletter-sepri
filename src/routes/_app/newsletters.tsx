@@ -1,16 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
   listNewsletters,
   getNewsletter,
-  regenerateAllNewsletters,
 } from "@/lib/detections.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Download, Eye, RefreshCw } from "lucide-react";
+import { Copy, Download, Eye } from "lucide-react";
 
 export const Route = createFileRoute("/_app/newsletters")({
   head: () => ({ meta: [{ title: "Newsletters · SEPRI" }] }),
@@ -18,7 +17,7 @@ export const Route = createFileRoute("/_app/newsletters")({
 });
 
 function NewslettersPage() {
-  const qc = useQueryClient();
+  
   const [openId, setOpenId] = useState<string | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["newsletters"],
@@ -29,15 +28,8 @@ function NewslettersPage() {
     queryFn: () => getNewsletter({ data: { id: openId! } }),
     enabled: !!openId,
   });
-  const regenerate = useMutation({
-    mutationFn: () => regenerateAllNewsletters(),
-    onSuccess: (res) => {
-      toast.success(`${res.updated} newsletter(s) regeneradas com a nova estrutura`);
-      qc.invalidateQueries({ queryKey: ["newsletters"] });
-      qc.invalidateQueries({ queryKey: ["newsletter"] });
-    },
-    onError: () => toast.error("Falha ao regenerar newsletters"),
-  });
+
+
 
   async function copyHtml(html: string) {
     await navigator.clipboard.writeText(html);
@@ -60,17 +52,6 @@ function NewslettersPage() {
             HTML pronto a copiar para Brevo. Cada item corresponde a uma deteção aprovada.
           </p>
         </div>
-        {data && data.length > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => regenerate.mutate()}
-            disabled={regenerate.isPending}
-          >
-            <RefreshCw className={`w-4 h-4 mr-1 ${regenerate.isPending ? "animate-spin" : ""}`} />
-            {regenerate.isPending ? "A regenerar…" : "Aplicar nova estrutura"}
-          </Button>
-        )}
       </div>
 
       {isLoading && <p className="text-muted-foreground">A carregar…</p>}
