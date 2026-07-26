@@ -87,44 +87,64 @@ adaptadas para linguagem clara e imperativa. Se a notícia for meramente informa
 (uma publicação em Diário da República sem orientações operacionais, por exemplo),
 deixa guidelines por preencher.`;
 
+function fallbackItemContent(d: DetectionInput): NewsletterItemContent {
+  const paragraphs = d.summary
+    .split(/\n{2,}|\.\s+(?=[A-ZÀ-Ú])/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+  return {
+    title: d.title,
+    intro_paragraphs: paragraphs.length ? paragraphs.slice(0, 2) : [d.summary],
+    sections: paragraphs.length > 2
+      ? [{ icon: "📌", heading: "Destaques", paragraphs: paragraphs.slice(2) }]
+      : [],
+    source_name: d.source_name,
+    source_url: d.source_url,
+    published_at: d.published_at ?? null,
+  };
+}
+
 export async function generateNewsletterHtml(d: DetectionInput, chrome: ChromeInput) {
   const ai = createLovableAi(requireLovableApiKey());
-  const { output } = await generateText({
-    model: ai(MODEL),
-    output: Output.object({
-      schema: z.object({
-        subject: z.string().describe("Assunto Brevo, até 80 caracteres"),
-        content: ItemContentSchema,
+  let subject = d.title.slice(0, 80);
+  let content: NewsletterItemContent;
+  try {
+    const { output } = await generateText({
+      model: ai(MODEL),
+      output: Output.object({
+        schema: z.object({
+          subject: z.string().describe("Assunto Brevo, até 80 caracteres"),
+          content: ItemContentSchema,
+        }),
       }),
-    }),
-    system: SYSTEM_BASE,
-    prompt: `Fonte: ${d.source_name}
+      system: SYSTEM_BASE,
+      prompt: `Fonte: ${d.source_name}
 Título detetado: ${d.title}
 Resumo/conteúdo: ${d.summary}
 ${d.source_url ? `URL: ${d.source_url}` : ""}
 ${d.published_at ? `Publicado: ${d.published_at}` : ""}
 
 Redige a newsletter completa seguindo a estrutura visual SEPRI.`,
-  });
+    });
+    subject = output.subject;
+    content = {
+      ...output.content,
+      source_name: d.source_name,
+      source_url: d.source_url,
+      published_at: d.published_at ?? null,
+    };
+  } catch (err) {
+    console.error("[newsletter-ai] generateNewsletterHtml fallback:", err);
+    content = fallbackItemContent(d);
+  }
 
-  const item: NewsletterItemContent = {
-    ...output.content,
-    source_name: d.source_name,
-    source_url: d.source_url,
-    published_at: d.published_at ?? null,
-  };
-
-  const doc: NewsletterDocument = {
-    subject: output.subject,
-    items: [item],
-  };
-
+  const doc: NewsletterDocument = { subject, items: [content] };
   const html = renderNewsletterHtml(doc, {
     logoUrl: chrome.logo_url,
     disclaimerHtml: chrome.disclaimer_html,
   });
-
-  return { subject: output.subject, html };
+  return { subject, html };
 }
 
 export async function generateCombinedNewsletterHtml(
