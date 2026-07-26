@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_app/newsletters")({
 });
 
 function NewslettersPage() {
-  const qc = useQueryClient();
+  
   const [openId, setOpenId] = useState<string | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["newsletters"],
