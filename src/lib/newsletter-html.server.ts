@@ -24,6 +24,11 @@ export interface NewsletterGuidelines {
   items: string[];
 }
 
+export interface NewsletterCta {
+  label: string;
+  url?: string;
+}
+
 export interface NewsletterItemContent {
   overtitle?: string; // kicker ribbon text
   title: string; // big H1
@@ -32,6 +37,7 @@ export interface NewsletterItemContent {
   sections: NewsletterSection[];
   guidelines?: NewsletterGuidelines;
   closing_paragraph?: string;
+  cta?: NewsletterCta;
   source_name?: string;
   source_url?: string | null;
   published_at?: string | null;
@@ -45,6 +51,7 @@ export interface NewsletterDocument {
     lead: string;
   };
   items: NewsletterItemContent[];
+  cta?: NewsletterCta;
 }
 
 export interface NewsletterChrome {
