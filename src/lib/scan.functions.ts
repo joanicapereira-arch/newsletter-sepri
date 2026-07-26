@@ -260,7 +260,7 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
     admin
       .from("detections")
       .select("title,summary,source_name")
-      .eq("status", "approved")
+      .in("status", ["informativo", "prioritario"])
       .order("decided_at", { ascending: false })
       .limit(15),
     admin
