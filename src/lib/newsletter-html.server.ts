@@ -227,7 +227,7 @@ function renderSection(section: NewsletterSection): string {
   const paragraphs = (section.paragraphs ?? [])
     .map(
       (p) =>
-        `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:0 0 12px;">${esc(p)}</p>`,
+        `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:0 0 12px;">${fmt(p)}</p>`,
     )
     .join("");
 
@@ -238,7 +238,7 @@ function renderSection(section: NewsletterSection): string {
     .map((sub) => {
       const subBullets = sub.bullets && sub.bullets.length ? renderBullets(sub.bullets) : "";
       const subPara = sub.paragraph
-        ? `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:0 0 8px;">${esc(sub.paragraph)}</p>`
+        ? `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:0 0 8px;">${fmt(sub.paragraph)}</p>`
         : "";
       return `<div style="margin:14px 0 4px;">
         <p style="font-size:15px;line-height:1.5;color:${INK};font-weight:700;margin:0 0 6px;">${esc(sub.heading)}</p>
@@ -254,7 +254,7 @@ function renderBullets(items: string[]): string {
   const li = items
     .map(
       (b) =>
-        `<li style="font-size:15px;line-height:1.65;color:${BODY};margin:0 0 6px;">${esc(b)}</li>`,
+        `<li style="font-size:15px;line-height:1.65;color:${BODY};margin:0 0 6px;">${fmt(b)}</li>`,
     )
     .join("");
   return `<ul style="margin:0 0 14px 22px;padding:0;">${li}</ul>`;
@@ -262,12 +262,12 @@ function renderBullets(items: string[]): string {
 
 function renderGuidelines(g: NewsletterGuidelines): string {
   const intro = g.intro
-    ? `<p style="font-size:15px;line-height:1.65;color:${BODY};margin:0 0 12px;">${esc(g.intro)}</p>`
+    ? `<p style="font-size:15px;line-height:1.65;color:${BODY};margin:0 0 12px;">${fmt(g.intro)}</p>`
     : "";
   const items = g.items
     .map(
       (it) =>
-        `<li style="font-size:15px;line-height:1.65;color:${INK};margin:0 0 8px;padding-left:6px;list-style:none;position:relative;"><span style="color:${TEAL};font-weight:700;margin-right:8px;">✓</span>${esc(it)}</li>`,
+        `<li style="font-size:15px;line-height:1.65;color:${INK};margin:0 0 8px;padding-left:6px;list-style:none;position:relative;"><span style="color:${TEAL};font-weight:700;margin-right:8px;">✓</span>${fmt(it)}</li>`,
     )
     .join("");
   return `<div style="margin:28px 0 8px;padding:22px 24px;background:${HIGHLIGHT_BG};border-left:4px solid ${TEAL};border-radius:6px;">
@@ -284,4 +284,9 @@ function esc(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+// Escape and then convert **bold** markdown to <strong>.
+function fmt(s: string): string {
+  return esc(s).replace(/\*\*(.+?)\*\*/g, `<strong style="color:${INK};">$1</strong>`);
 }
