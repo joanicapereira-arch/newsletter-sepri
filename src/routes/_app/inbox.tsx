@@ -93,6 +93,14 @@ function InboxPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+  const backfillMut = useMutation({
+    mutationFn: () => backfillDetectionUrls(),
+    onSuccess: (r) => {
+      toast.success(`Links corrigidos: ${r.updated} de ${r.checked} deteções verificadas.`);
+      qc.invalidateQueries({ queryKey: ["detections"] });
+    },
+    onError: (e: Error) => toast.error(`Falha ao corrigir links: ${e.message}`),
+  });
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
