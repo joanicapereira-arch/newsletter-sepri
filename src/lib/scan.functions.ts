@@ -200,63 +200,8 @@ function timeoutSignal(ms: number) {
   return controller.signal;
 }
 
-async function sendAlertEmail(
-  to: string,
-  detection: { id: string; title: string; summary: string; source_name: string; source_url: string | null },
-  origin: string,
-) {
-  const { buildApprovalUrls } = await import("./tokens.server");
-  const { approveUrl, rejectUrl } = buildApprovalUrls(origin, detection.id);
-  // Try Brevo connector if available; otherwise log.
-  const lovableKey = process.env.LOVABLE_API_KEY;
-  const brevoKey = process.env.BREVO_API_KEY;
-  if (!lovableKey || !brevoKey) {
-    console.warn("[alert] Brevo não conectado — alerta apenas registado:", {
-      to,
-      detection_id: detection.id,
-      approveUrl,
-      rejectUrl,
-    });
-    return { sent: false, approveUrl, rejectUrl };
-  }
-  const html = `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#0f172a;">
-    <h2 style="color:#0f5e8f;">Nova deteção SEPRI</h2>
-    <p style="font-size:13px;color:#64748b;margin:0 0 4px;">Fonte: <strong>${detection.source_name}</strong></p>
-    <h3 style="margin:8px 0 4px;">${escapeHtml(detection.title)}</h3>
-    <p style="line-height:1.5;">${escapeHtml(detection.summary)}</p>
-    ${detection.source_url ? `<p style="font-size:13px;"><a href="${detection.source_url}">Ver fonte original →</a></p>` : ""}
-    <p style="margin:24px 0 8px;font-weight:600;">É relevante avançar com a criação da newsletter?</p>
-    <p>
-      <a href="${approveUrl}" style="background:#0f5e8f;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin-right:8px;">✅ Aprovar</a>
-      <a href="${rejectUrl}" style="background:#e2e8f0;color:#0f172a;padding:12px 20px;border-radius:6px;text-decoration:none;display:inline-block;">❌ Rejeitar</a>
-    </p>
-    <p style="font-size:11px;color:#94a3b8;margin-top:24px;">Token válido por 14 dias. Após aprovação, a newsletter é gerada automaticamente e fica disponível no dashboard SEPRI.</p>
-  </div>`;
-  try {
-    const r = await fetch("https://connector-gateway.lovable.dev/brevo/smtp/email", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": brevoKey,
-      },
-      body: JSON.stringify({
-        sender: { name: "SEPRI Newsletter Bot", email: "no-reply@sepri.pt" },
-        to: [{ email: to }],
-        subject: `[SEPRI] ${detection.source_name}: ${detection.title}`,
-        htmlContent: html,
-      }),
-    });
-    if (!r.ok) {
-      const t = await r.text();
-      console.error("Brevo send failed", r.status, t);
-      return { sent: false, approveUrl, rejectUrl, error: `Brevo ${r.status}` };
-    }
-    return { sent: true, approveUrl, rejectUrl };
-  } catch (e) {
-    console.error("Brevo send error", e);
-    return { sent: false, approveUrl, rejectUrl, error: String(e) };
-  }
+function escapeHtml(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function escapeHtml(s: string) {
