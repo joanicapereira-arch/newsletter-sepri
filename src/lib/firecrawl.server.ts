@@ -51,14 +51,37 @@ export async function firecrawlScrape(
  * Concatena o markdown de todas (limitado), permitindo à IA cobrir mais
  * itens publicados nos últimos meses (e não só os 5–10 da homepage).
  */
+export interface LinkRef {
+  text: string;
+  url: string;
+}
+
+function extractMarkdownLinks(md: string, rootUrl: string): LinkRef[] {
+  const out: LinkRef[] = [];
+  const seen = new Set<string>();
+  const re = /\[([^\]]{3,200})\]\((https?:\/\/[^)\s]+)\)/g;
+  const rootNorm = rootUrl.replace(/\/$/, "");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(md)) !== null) {
+    const text = m[1].replace(/\s+/g, " ").trim();
+    const url = m[2].trim();
+    if (!text || !url) continue;
+    if (url.replace(/\/$/, "") === rootNorm) continue;
+    if (/\.(png|jpg|jpeg|svg|gif|webp|ico|css|js)(\?|#|$)/i.test(url)) continue;
+    if (seen.has(url)) continue;
+    seen.add(url);
+    out.push({ text, url });
+  }
+  return out;
+}
+
 export async function firecrawlDeepScrape(
   rootUrl: string,
   opts: { maxPages?: number; perPageChars?: number } = {},
-): Promise<{ markdown: string; pages: number }> {
+): Promise<{ markdown: string; pages: number; links: LinkRef[] }> {
   const maxPages = opts.maxPages ?? 0;
   const perPageChars = opts.perPageChars ?? 3500;
 
-  // Run root scrape + map discovery in parallel
   const [root, mapJson] = await Promise.all([
     firecrawlScrape(rootUrl, 250, 8000).catch(() => null),
     fetch(`${FC_BASE}/map`, {
@@ -72,8 +95,10 @@ export async function firecrawlDeepScrape(
   ]);
 
   const parts: string[] = [];
+  const linkPool: LinkRef[] = [];
   if (root?.markdown) {
     parts.push(`# Fonte raiz: ${rootUrl}\n\n${root.markdown.slice(0, perPageChars * 2)}`);
+    linkPool.push(...extractMarkdownLinks(root.markdown, rootUrl));
   }
 
   const candidates = mapJson?.links ?? mapJson?.data?.links ?? [];
@@ -96,12 +121,10 @@ export async function firecrawlDeepScrape(
   }
 
   const filtered = scored.slice(0, maxPages);
-
   const finalList = filtered.length > 0
     ? filtered
     : (root?.links ?? []).filter((u) => newsPattern.test(u)).slice(0, maxPages);
 
-  // Scrape subpages in parallel
   const subs = await Promise.all(
     finalList.map((u) =>
       firecrawlScrape(u, 150, 6000)
@@ -114,11 +137,46 @@ export async function firecrawlDeepScrape(
   for (const { u, sub } of subs) {
     if (sub?.markdown) {
       parts.push(`\n\n---\n# ${u}\n\n${sub.markdown.slice(0, perPageChars)}`);
+      linkPool.push(...extractMarkdownLinks(sub.markdown, rootUrl));
       pages++;
     }
   }
 
-  return { markdown: parts.join("\n"), pages };
+  const seen = new Set<string>();
+  const links = linkPool.filter((l) => (seen.has(l.url) ? false : (seen.add(l.url), true)));
+
+  return { markdown: parts.join("\n"), pages, links };
+}
+
+const STOP = new Set([
+  "de","da","do","das","dos","e","a","o","as","os","em","no","na","nos","nas","para","por","com","um","uma","the","of","and","to","in","on","at","for","nº","º","ª",
+]);
+
+function tokens(s: string): Set<string> {
+  const norm = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const parts = norm.split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !STOP.has(w));
+  return new Set(parts);
+}
+
+export function resolveUrlForTitle(
+  title: string,
+  links: LinkRef[],
+  rootUrl: string,
+): string | null {
+  const rootNorm = rootUrl.replace(/\/$/, "");
+  const tw = tokens(title);
+  if (tw.size < 2) return null;
+  let best: { score: number; url: string | null } = { score: 0, url: null };
+  for (const l of links) {
+    if (!l.url || l.url.replace(/\/$/, "") === rootNorm) continue;
+    const lw = tokens(l.text);
+    if (!lw.size) continue;
+    let overlap = 0;
+    for (const w of tw) if (lw.has(w)) overlap++;
+    const score = overlap / tw.size;
+    if (score > best.score) best = { score, url: l.url };
+  }
+  return best.score >= 0.45 ? best.url : null;
 }
 
 

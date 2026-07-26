@@ -6,6 +6,7 @@ import {
   listDetections,
   categorizeDetection,
   generateNewsletterFromSelection,
+  backfillDetectionUrls,
 } from "@/lib/detections.functions";
 import { triggerManualScan } from "@/lib/scan.functions";
 import { Button } from "@/components/ui/button";
@@ -92,6 +93,14 @@ function InboxPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+  const backfillMut = useMutation({
+    mutationFn: () => backfillDetectionUrls(),
+    onSuccess: (r) => {
+      toast.success(`Links corrigidos: ${r.updated} de ${r.checked} deteções verificadas.`);
+      qc.invalidateQueries({ queryKey: ["detections"] });
+    },
+    onError: (e: Error) => toast.error(`Falha ao corrigir links: ${e.message}`),
+  });
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -103,14 +112,24 @@ function InboxPage() {
             as que queres incluir e gera uma newsletter.
           </p>
         </div>
-        <Button onClick={() => scanMut.mutate()} disabled={scanMut.isPending}>
-          {scanMut.isPending ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <RefreshCw className="w-4 h-4 mr-2" />
-          )}
-          Scan agora
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => backfillMut.mutate()} disabled={backfillMut.isPending}>
+            {backfillMut.isPending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4 mr-2" />
+            )}
+            Corrigir links
+          </Button>
+          <Button onClick={() => scanMut.mutate()} disabled={scanMut.isPending}>
+            {scanMut.isPending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4 mr-2" />
+            )}
+            Scan agora
+          </Button>
+        </div>
       </div>
 
       <Tabs
