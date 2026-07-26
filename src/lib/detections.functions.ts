@@ -140,6 +140,61 @@ export const listScanRuns = createServerFn({ method: "GET" })
   });
 
 /**
+ * Regenera o HTML de todas as newsletters já existentes, aplicando o
+ * template atual. Usa detection_ids guardados (ou fallback detection_id).
+ */
+export const regenerateAllNewsletters = createServerFn({ method: "POST" })
+  .handler(async () => {
+    const admin = await getAdmin();
+    const { data: newsletters } = await admin
+      .from("newsletters")
+      .select("id,detection_id,detection_ids");
+    if (!newsletters?.length) return { updated: 0 };
+
+    const { data: cfg } = await admin.from("app_config").select("*").eq("id", 1).single();
+    const { generateCombinedNewsletterHtml } = await import("./newsletter-ai.server");
+
+    let updated = 0;
+    for (const n of newsletters) {
+      const ids =
+        n.detection_ids && n.detection_ids.length
+          ? n.detection_ids
+          : n.detection_id
+          ? [n.detection_id]
+          : [];
+      if (!ids.length) continue;
+      const { data: dets } = await admin.from("detections").select("*").in("id", ids);
+      if (!dets?.length) continue;
+      const ordered = ids
+        .map((id) => dets.find((x) => x.id === id))
+        .filter((x): x is (typeof dets)[number] => !!x);
+      try {
+        const { subject, html } = await generateCombinedNewsletterHtml(
+          ordered.map((d) => ({
+            title: d.title,
+            summary: d.summary,
+            source_name: d.source_name,
+            source_url: d.source_url,
+            published_at: d.published_at,
+          })),
+          {
+            logo_url: cfg?.logo_url ?? "",
+            disclaimer_html: cfg?.disclaimer_html ?? "",
+          },
+        );
+        const { error } = await admin
+          .from("newsletters")
+          .update({ subject, html, generated_at: new Date().toISOString() })
+          .eq("id", n.id);
+        if (!error) updated++;
+      } catch (e) {
+        console.error("[regenerate] failed", n.id, e);
+      }
+    }
+    return { updated };
+  });
+
+/**
  * Corrige URLs de deteções existentes: para cada deteção sem source_url ou
  * com source_url igual à URL raiz da fonte, re-raspa a fonte, extrai os
  * links da página, e faz match fuzzy título→link.
