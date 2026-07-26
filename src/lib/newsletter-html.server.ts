@@ -1,8 +1,9 @@
-// Renders the final Brevo-ready HTML in the SEPRI newsletter visual language:
-// dark navy hero with a small teal kicker ribbon and large white H1, a solid
-// cyan intro block with bold lead, and white body sections with a green emoji
-// prefix on each teal-coloured heading, bullet lists, grouped subsections and
-// a highlighted "Orientações" box when the source has clear instructions.
+// SEPRI newsletter renderer — matches the reference template exactly:
+// (1) centered logo, (2) navy hero with icon + turquoise tag + white H1,
+// (3) turquoise intro block with white bold lead + supporting text,
+// (4) white body with emoji-prefixed H2 + bullet lists,
+// (5) rounded navy CTA button,
+// (6) fixed footer (contacts) + configurable disclaimer.
 
 export interface NewsletterSubsection {
   heading: string;
@@ -11,7 +12,7 @@ export interface NewsletterSubsection {
 }
 
 export interface NewsletterSection {
-  icon?: string; // emoji/icon character
+  icon?: string;
   heading: string;
   paragraphs?: string[];
   bullets?: string[];
@@ -30,10 +31,10 @@ export interface NewsletterCta {
 }
 
 export interface NewsletterItemContent {
-  overtitle?: string; // kicker ribbon text
-  title: string; // big H1
+  overtitle?: string;
+  title: string;
   subtitle?: string;
-  intro_paragraphs: string[]; // shown in cyan block (first paragraph rendered bold)
+  intro_paragraphs: string[];
   sections: NewsletterSection[];
   guidelines?: NewsletterGuidelines;
   closing_paragraph?: string;
@@ -59,39 +60,37 @@ export interface NewsletterChrome {
   disclaimerHtml: string;
 }
 
-// SEPRI visual palette
-const NAVY = "#0f2c52";
-const CYAN = "#7ec7d6";
-const RIBBON = "#a5d8e0";
-const RIBBON_INK = "#0f2c52";
-const TEAL = "#0f5e8f";
-const INK = "#0f172a";
-const MUTED = "#64748b";
-const BODY = "#334155";
-const BORDER = "#e2e8f0";
-const HIGHLIGHT_BG = "#f0f7fb";
+// Reference palette
+const NAVY = "#1a3a63";
+const TURQ = "#7ec8d8";
+const INK = "#2b2b2b";
+const MUTED = "#4a4a4a";
+const LIGHT_BG = "#eef1f4";
+const BORDER = "#d5dbe0";
+const PAGE_BG = "#e5e9ed";
 
 export function renderNewsletterHtml(doc: NewsletterDocument, chrome: NewsletterChrome): string {
   const isComposite = !!doc.composite_intro;
 
-  const heroBlock = isComposite && doc.composite_intro
-    ? renderHero({
-        overtitle: doc.composite_intro.overtitle,
-        title: doc.composite_intro.title,
-      })
-    : renderHero({
-        overtitle: doc.items[0]?.overtitle,
-        title: doc.items[0]?.title ?? "",
-        subtitle: doc.items[0]?.subtitle,
-      });
+  const heroTag = isComposite
+    ? doc.composite_intro?.overtitle
+    : doc.items[0]?.overtitle;
+  const heroTitle = isComposite
+    ? doc.composite_intro?.title ?? ""
+    : doc.items[0]?.title ?? "";
+  const heroIcon = pickHeroIcon(heroTag, heroTitle);
 
-  const introBlock = isComposite && doc.composite_intro
-    ? renderIntroBlock([doc.composite_intro.lead])
-    : renderIntroBlock(doc.items[0]?.intro_paragraphs ?? []);
+  const introParas = isComposite
+    ? doc.composite_intro
+      ? [doc.composite_intro.lead]
+      : []
+    : doc.items[0]?.intro_paragraphs ?? [];
 
   const bodyBlock = isComposite
-    ? doc.items.map((it, idx) => renderCompositeItem(it, idx)).join("\n")
+    ? doc.items.map(renderCompositeItem).join("\n")
     : renderItemBody(doc.items[0]);
+
+  const finalCta = doc.cta ?? (!isComposite ? doc.items[0]?.cta : undefined);
 
   return `<!doctype html>
 <html lang="pt">
@@ -100,28 +99,52 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(doc.subject)}</title>
 </head>
-<body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:${INK};">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:24px 0;">
+<body style="margin:0;padding:40px 0;background:${PAGE_BG};font-family:Arial,Helvetica,sans-serif;color:${INK};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAGE_BG};">
   <tr><td align="center">
-    <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;overflow:hidden;">
-      <tr><td style="padding:28px 32px 20px 32px;text-align:center;background:#ffffff;">
-        <img src="${esc(chrome.logoUrl)}" alt="SEPRI Group" style="max-height:64px;height:auto;display:inline-block;" />
+    <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;">
+      <!-- LOGO -->
+      <tr><td style="padding:32px 20px 24px;text-align:center;background:#ffffff;">
+        ${chrome.logoUrl
+          ? `<img src="${esc(chrome.logoUrl)}" alt="SEPRI Group" style="height:42px;display:inline-block;" />`
+          : `<div style="font-weight:900;font-size:20px;color:${NAVY};letter-spacing:1px;">sepri <span style="font-size:11px;color:${TURQ};font-weight:600;">Group</span></div>`}
       </td></tr>
-      ${heroBlock}
-      ${introBlock}
-      <tr><td style="padding:32px 40px;background:#ffffff;">
+
+      <!-- HERO -->
+      <tr><td style="background:${NAVY};padding:28px 32px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td width="72" valign="middle" style="font-size:48px;line-height:1;color:#ffffff;">${esc(heroIcon)}</td>
+            <td valign="middle">
+              ${heroTag
+                ? `<div style="display:inline-block;background:${TURQ};color:${NAVY};font-size:12px;font-weight:700;letter-spacing:0.5px;padding:4px 12px;border-radius:12px;margin-bottom:10px;text-transform:uppercase;">${esc(heroTag)}</div>`
+                : ""}
+              <h1 style="color:#ffffff;font-size:24px;line-height:1.25;margin:0;font-weight:800;">${esc(heroTitle)}</h1>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+
+      <!-- INTRO -->
+      ${renderIntroBlock(introParas)}
+
+      <!-- BODY -->
+      <tr><td style="padding:32px 40px;background:#ffffff;color:${INK};font-size:14px;line-height:1.6;">
         ${bodyBlock}
-        ${doc.cta ? renderCta(doc.cta) : (!isComposite && doc.items[0]?.cta ? "" : "")}
       </td></tr>
-      <tr><td style="padding:24px 32px;background:${NAVY};color:#ffffff;">
-        <p style="margin:0 0 6px;font-size:15px;font-weight:700;letter-spacing:0.5px;">SEPRI — Medicina no Trabalho, Lda.</p>
-        <p style="margin:0;font-size:13px;line-height:1.6;color:#cbd5e1;">
-          Avenida da Igreja nº42, 1 Dto, 1700-239 Lisboa · Rua Dr Loureiro Amorim nº183, 4710-487 Braga<br/>
-          <a href="https://www.sepri.pt" style="color:#a5d8e0;text-decoration:none;">www.sepri.pt</a> · <a href="mailto:comunicacao@sepri.pt" style="color:#a5d8e0;text-decoration:none;">comunicacao@sepri.pt</a>
-        </p>
-      </td></tr>
-      <tr><td style="padding:16px 32px;background:#f1f5f9;border-top:1px solid ${BORDER};">
-        ${chrome.disclaimerHtml}
+
+      <!-- CTA -->
+      ${finalCta ? renderCta(finalCta) : ""}
+
+      <tr><td><hr style="border:none;border-top:1px solid ${BORDER};margin:0 40px;" /></td></tr>
+
+      <!-- FOOTER -->
+      <tr><td style="background:${LIGHT_BG};padding:32px 40px 24px;text-align:center;font-size:12px;color:#5a6472;line-height:1.8;">
+        <strong style="display:block;font-size:13px;color:${INK};margin-bottom:12px;">SEPRI - Medicina no Trabalho Lda</strong>
+        <div style="text-decoration:underline;">Avenida da Igreja nº42, 1 Dto, 1700-239 Lisboa</div>
+        <div style="text-decoration:underline;">Rua Dr Loureiro Amorim nº183, 4710-487 Braga</div>
+        <div>www.sepri.pt · comunicacao@sepri.pt</div>
+        <div style="margin-top:16px;">${chrome.disclaimerHtml}</div>
       </td></tr>
     </table>
   </td></tr>
@@ -130,39 +153,20 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
 </html>`;
 }
 
-function renderCta(cta: NewsletterCta): string {
-  const href = cta.url ?? "https://www.sepri.pt/contactos";
-  return `<div style="margin:36px 0 8px;text-align:center;">
-    <a href="${esc(href)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;padding:16px 34px;border-radius:4px;font-size:14px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;">${esc(cta.label)}</a>
-  </div>`;
-}
-
-function renderHero(opts: { overtitle?: string; title: string; subtitle?: string }): string {
-  const ribbon = opts.overtitle
-    ? `<div style="display:inline-block;background:${RIBBON};color:${RIBBON_INK};padding:6px 18px;border-radius:2px;font-size:12px;letter-spacing:2.5px;font-weight:700;text-transform:uppercase;margin-bottom:16px;">${esc(opts.overtitle)}</div>`
-    : "";
-  const subtitle = opts.subtitle
-    ? `<p style="margin:14px 0 0;font-size:18px;line-height:1.4;color:#e2e8f0;font-weight:400;">${esc(opts.subtitle)}</p>`
-    : "";
-  return `<tr><td style="padding:44px 40px;background:${NAVY};text-align:center;">
-    ${ribbon}
-    <h1 style="margin:0;font-size:28px;line-height:1.25;color:#ffffff;font-weight:800;letter-spacing:-0.3px;">${esc(opts.title)}</h1>
-    ${subtitle}
-  </td></tr>`;
-}
-
 function renderIntroBlock(paragraphs: string[]): string {
   if (!paragraphs.length) return "";
   const [first, ...rest] = paragraphs;
-  const firstHtml = `<p style="margin:0 0 14px;font-size:17px;line-height:1.5;color:#ffffff;font-weight:700;text-align:center;">${esc(first)}</p>`;
-  const restHtml = rest
-    .map(
-      (p) =>
-        `<p style="margin:0 0 12px;font-size:15px;line-height:1.65;color:#ffffff;text-align:center;">${esc(p)}</p>`,
-    )
-    .join("");
-  return `<tr><td style="padding:36px 48px;background:${CYAN};">
+  const firstHtml = `<strong style="display:block;font-size:15px;margin-bottom:10px;">${esc(first)}</strong>`;
+  const restHtml = rest.map((p) => esc(p)).join(" ");
+  return `<tr><td style="background:${TURQ};color:#ffffff;text-align:center;padding:28px 40px;font-size:14px;line-height:1.7;">
     ${firstHtml}${restHtml}
+  </td></tr>`;
+}
+
+function renderCta(cta: NewsletterCta): string {
+  const href = cta.url ?? "https://www.sepri.pt/contactos";
+  return `<tr><td style="text-align:center;padding:8px 40px 32px;background:#ffffff;">
+    <a href="${esc(href)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:14px 28px;border-radius:24px;">${esc(cta.label)}</a>
   </td></tr>`;
 }
 
@@ -171,40 +175,78 @@ function renderItemBody(item: NewsletterItemContent | undefined): string {
   const sections = (item.sections ?? []).map(renderSection).join("\n");
   const guidelines = item.guidelines ? renderGuidelines(item.guidelines) : "";
   const closing = item.closing_paragraph
-    ? `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:28px 0 0;">${fmt(item.closing_paragraph)}</p>`
+    ? `<p style="font-size:14px;line-height:1.6;color:${INK};margin:20px 0 0;">${fmt(item.closing_paragraph)}</p>`
     : "";
-  const cta = item.cta ? renderCta(item.cta) : "";
   const sourceLine = renderSourceLine(item);
-  return `${sections}${guidelines}${closing}${cta}${sourceLine}`;
+  return `${sections}${guidelines}${closing}${sourceLine}`;
 }
 
-function renderCompositeItem(item: NewsletterItemContent, idx: number): string {
-  const sep =
-    idx > 0
-      ? `<div style="margin:36px 0;border-top:2px solid ${BORDER};"></div>`
-      : "";
-  const kicker = item.overtitle
-    ? `<div style="display:inline-block;background:${RIBBON};color:${RIBBON_INK};padding:4px 14px;border-radius:2px;font-size:11px;letter-spacing:2px;font-weight:700;text-transform:uppercase;margin-bottom:12px;">${esc(item.overtitle)}</div>`
-    : "";
-  const title = `<h2 style="margin:0 0 8px;font-size:22px;line-height:1.3;color:${NAVY};font-weight:800;">${esc(item.title)}</h2>`;
-  const subtitle = item.subtitle
-    ? `<p style="margin:0 0 14px;font-size:16px;line-height:1.45;color:${TEAL};font-weight:600;">${esc(item.subtitle)}</p>`
-    : "";
+function renderCompositeItem(item: NewsletterItemContent): string {
+  const heading = renderSectionHeading({ icon: item.overtitle ? "📌" : "🗂", heading: item.title });
   const intro = (item.intro_paragraphs ?? [])
-    .map(
-      (p) =>
-        `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:0 0 14px;">${fmt(p)}</p>`,
-    )
+    .map((p) => `<p style="font-size:14px;line-height:1.6;color:${MUTED};margin:0 0 12px;">${fmt(p)}</p>`)
     .join("");
   const sections = (item.sections ?? []).map(renderSection).join("\n");
   const guidelines = item.guidelines ? renderGuidelines(item.guidelines) : "";
   const closing = item.closing_paragraph
-    ? `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:24px 0 0;">${fmt(item.closing_paragraph)}</p>`
+    ? `<p style="font-size:14px;line-height:1.6;color:${INK};margin:16px 0 0;">${fmt(item.closing_paragraph)}</p>`
     : "";
-  const cta = item.cta ? renderCta(item.cta) : "";
-  const sourceLine = renderSourceLine(item);
+  const src = renderSourceLine(item);
+  return `${heading}${intro}${sections}${guidelines}${closing}${src}`;
+}
 
-  return `${sep}<div>${kicker}${title}${subtitle}${intro}${sections}${guidelines}${closing}${cta}${sourceLine}</div>`;
+function renderSection(section: NewsletterSection): string {
+  const heading = renderSectionHeading(section);
+  const paragraphs = (section.paragraphs ?? [])
+    .map((p) => `<p style="font-size:14px;line-height:1.6;color:${INK};margin:0 0 12px;">${fmt(p)}</p>`)
+    .join("");
+  const bullets =
+    section.bullets && section.bullets.length ? renderBullets(section.bullets) : "";
+  const subs = (section.subsections ?? [])
+    .map((sub) => {
+      const subBullets = sub.bullets && sub.bullets.length ? renderBullets(sub.bullets) : "";
+      const subPara = sub.paragraph
+        ? `<p style="margin:0 0 8px;color:${MUTED};font-size:14px;line-height:1.6;">${fmt(sub.paragraph)}</p>`
+        : "";
+      return `<div style="margin:10px 0;">
+        <p style="font-weight:bold;margin:0 0 2px;color:${INK};font-size:14px;">${esc(sub.heading)}</p>
+        ${subPara}${subBullets}
+      </div>`;
+    })
+    .join("");
+  return `${heading}${paragraphs}${bullets}${subs}`;
+}
+
+function renderSectionHeading(section: { icon?: string; heading: string }): string {
+  const icon = section.icon ? `${section.icon} ` : "";
+  return `<h2 style="font-size:16px;margin:28px 0 10px;color:${INK};font-weight:bold;">${esc(icon)}${esc(section.heading)}</h2>`;
+}
+
+function renderBullets(items: string[]): string {
+  const li = items
+    .map(
+      (b) => `<li style="margin:0 0 6px;color:${INK};"><span style="font-weight:bold;">${fmt(b)}</span></li>`,
+    )
+    .join("");
+  return `<ul style="margin:8px 0 16px;padding-left:20px;font-size:14px;line-height:1.6;">${li}</ul>`;
+}
+
+function renderGuidelines(g: NewsletterGuidelines): string {
+  const intro = g.intro
+    ? `<p style="margin:0 0 10px;color:${MUTED};font-size:14px;line-height:1.6;">${fmt(g.intro)}</p>`
+    : "";
+  const items = g.items
+    .map(
+      (it) =>
+        `<li style="margin:0 0 6px;color:${INK};padding-left:4px;list-style:none;position:relative;"><span style="color:${NAVY};font-weight:bold;margin-right:8px;">✓</span>${fmt(it)}</li>`,
+    )
+    .join("");
+  return `<div style="margin:24px 0 8px;padding:20px 22px;background:${LIGHT_BG};border-left:4px solid ${NAVY};border-radius:6px;">
+    <div style="display:inline-block;background:${NAVY};color:#ffffff;padding:4px 12px;border-radius:12px;font-size:11px;letter-spacing:1px;font-weight:700;text-transform:uppercase;margin-bottom:10px;">Orientações</div>
+    <h3 style="font-size:15px;margin:0 0 8px;color:${INK};font-weight:bold;">${esc(g.heading)}</h3>
+    ${intro}
+    <ul style="margin:0;padding:0;list-style:none;font-size:14px;line-height:1.6;">${items}</ul>
+  </div>`;
 }
 
 function renderSourceLine(item: NewsletterItemContent): string {
@@ -214,68 +256,22 @@ function renderSourceLine(item: NewsletterItemContent): string {
   const src = item.source_name ? `Fonte: ${esc(item.source_name)}` : "";
   const line = [pub, src].filter(Boolean).join(" · ");
   const link = item.source_url
-    ? ` — <a href="${esc(item.source_url)}" style="color:${TEAL};text-decoration:underline;">Ler na fonte original →</a>`
+    ? ` — <a href="${esc(item.source_url)}" style="color:${NAVY};text-decoration:underline;">Ler na fonte original →</a>`
     : "";
   if (!line && !link) return "";
-  return `<p style="font-size:13px;color:${MUTED};margin:24px 0 0;">${line}${link}</p>`;
+  return `<p style="font-size:12px;color:#5a6472;margin:20px 0 0;">${line}${link}</p>`;
 }
 
-function renderSection(section: NewsletterSection): string {
-  const icon = section.icon ? `<span style="margin-right:10px;">${esc(section.icon)}</span>` : "🌿 ";
-  const heading = `<h3 style="font-size:18px;line-height:1.35;margin:28px 0 14px;color:${TEAL};font-weight:800;">${icon}${esc(section.heading)}</h3>`;
-
-  const paragraphs = (section.paragraphs ?? [])
-    .map(
-      (p) =>
-        `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:0 0 12px;">${fmt(p)}</p>`,
-    )
-    .join("");
-
-  const bullets =
-    section.bullets && section.bullets.length ? renderBullets(section.bullets) : "";
-
-  const subs = (section.subsections ?? [])
-    .map((sub) => {
-      const subBullets = sub.bullets && sub.bullets.length ? renderBullets(sub.bullets) : "";
-      const subPara = sub.paragraph
-        ? `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:0 0 8px;">${fmt(sub.paragraph)}</p>`
-        : "";
-      return `<div style="margin:14px 0 4px;">
-        <p style="font-size:15px;line-height:1.5;color:${INK};font-weight:700;margin:0 0 6px;">${esc(sub.heading)}</p>
-        ${subPara}${subBullets}
-      </div>`;
-    })
-    .join("");
-
-  return `${heading}${paragraphs}${bullets}${subs}`;
-}
-
-function renderBullets(items: string[]): string {
-  const li = items
-    .map(
-      (b) =>
-        `<li style="font-size:15px;line-height:1.65;color:${BODY};margin:0 0 6px;">${fmt(b)}</li>`,
-    )
-    .join("");
-  return `<ul style="margin:0 0 14px 22px;padding:0;">${li}</ul>`;
-}
-
-function renderGuidelines(g: NewsletterGuidelines): string {
-  const intro = g.intro
-    ? `<p style="font-size:15px;line-height:1.65;color:${BODY};margin:0 0 12px;">${fmt(g.intro)}</p>`
-    : "";
-  const items = g.items
-    .map(
-      (it) =>
-        `<li style="font-size:15px;line-height:1.65;color:${INK};margin:0 0 8px;padding-left:6px;list-style:none;position:relative;"><span style="color:${TEAL};font-weight:700;margin-right:8px;">✓</span>${fmt(it)}</li>`,
-    )
-    .join("");
-  return `<div style="margin:28px 0 8px;padding:22px 24px;background:${HIGHLIGHT_BG};border-left:4px solid ${TEAL};border-radius:6px;">
-    <div style="display:inline-block;background:${TEAL};color:#ffffff;padding:4px 12px;border-radius:2px;font-size:11px;letter-spacing:2px;font-weight:700;text-transform:uppercase;margin-bottom:10px;">Orientações</div>
-    <h4 style="font-size:17px;line-height:1.35;margin:0 0 10px;color:${NAVY};font-weight:800;">${esc(g.heading)}</h4>
-    ${intro}
-    <ul style="margin:0;padding:0;list-style:none;">${items}</ul>
-  </div>`;
+function pickHeroIcon(tag?: string, title?: string): string {
+  const s = `${tag ?? ""} ${title ?? ""}`.toLowerCase();
+  if (/vacin|saúde|saude|dgs|gripe|covid|doen/.test(s)) return "🏥";
+  if (/psic|mental|stress|burnout|ansied/.test(s)) return "🧠";
+  if (/incend|fogo|autoprote|emerg/.test(s)) return "🚒";
+  if (/legisla|portaria|decreto|lei |código|codigo|diário|diario/.test(s)) return "📋";
+  if (/formaç|forma|curso/.test(s)) return "🎓";
+  if (/aliment|nutri|coração|cora|corpo/.test(s)) return "🥦";
+  if (/ambient|clima|sustenta/.test(s)) return "🌿";
+  return "📋";
 }
 
 function esc(s: string): string {
@@ -286,7 +282,6 @@ function esc(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-// Escape and then convert **bold** markdown to <strong>.
 function fmt(s: string): string {
-  return esc(s).replace(/\*\*(.+?)\*\*/g, `<strong style="color:${INK};">$1</strong>`);
+  return esc(s).replace(/\*\*(.+?)\*\*/g, `<strong>$1</strong>`);
 }

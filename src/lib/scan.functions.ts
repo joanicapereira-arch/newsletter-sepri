@@ -95,30 +95,44 @@ ${content}
 Extrai novidades relevantes dos últimos 90 dias, cada uma com a sua URL específica.`,
   });
 
+  const rootNorm = source.url.replace(/\/$/, "");
   const items = output.items
     .filter((i) => i.title && i.summary && i.relevance_score >= 40)
     .map((i) => {
-      // Nunca aceitar a URL raiz da fonte como source_url do item.
       const url = i.source_url?.trim();
       let normalized: string | null =
-        !url || url === source.url || url.replace(/\/$/, "") === source.url.replace(/\/$/, "")
-          ? null
-          : url;
-      // Fallback: tentar resolver via fuzzy match título→link do markdown raspado
+        !url || url === source.url || url.replace(/\/$/, "") === rootNorm ? null : url;
       if (!normalized) {
         normalized = resolveUrlForTitle(i.title, deep.links, source.url);
       }
       return { ...i, source_url: normalized };
     });
 
+  // Resolve redirects (e.g. Google News, feed proxies) → final destination URL.
+  await Promise.all(
+    items.map(async (item) => {
+      if (!item.source_url) return;
+      try {
+        const r = await fetch(item.source_url, {
+          method: "GET",
+          redirect: "follow",
+          signal: timeoutSignal(6000),
+        });
+        if (r.url && r.url !== item.source_url) {
+          item.source_url = r.url;
+        }
+      } catch {
+        /* keep original */
+      }
+    }),
+  );
 
-  // Fallback: para itens sem published_at, faz scrape rápido do source_url
-  // e pede à IA para extrair APENAS a data de publicação.
+  // Published date fallback
   await Promise.all(
     items.map(async (item) => {
       if (item.published_at) return;
       const url = item.source_url ?? source.url;
-      if (!url || url === source.url) return; // só vale a pena se for página específica
+      if (!url || url === source.url) return;
       try {
         const { firecrawlScrape } = await import("./firecrawl.server");
         const page = await firecrawlScrape(url, 150, 6000);
@@ -144,7 +158,19 @@ Extrai novidades relevantes dos últimos 90 dias, cada uma com a sua URL especí
   const { createHash } = await import("crypto");
   const admin = await getAdmin();
   let created = 0;
+  const dropped: string[] = [];
   for (const item of items) {
+    // Validação obrigatória: URL específico do artigo. Nunca guardamos
+    // deteções que apontem para a raiz da fonte (homepage/feed/listagem).
+    const finalUrl = item.source_url?.trim() ?? "";
+    const isRoot =
+      !finalUrl ||
+      finalUrl === source.url ||
+      finalUrl.replace(/\/$/, "") === rootNorm;
+    if (isRoot) {
+      dropped.push(item.title);
+      continue;
+    }
     const hash = createHash("sha256")
       .update(`${source.id}:${item.title.toLowerCase().trim()}`)
       .digest("hex")
@@ -155,7 +181,7 @@ Extrai novidades relevantes dos últimos 90 dias, cada uma com a sua URL especí
       source_name: source.name,
       title: item.title,
       summary: item.summary,
-      source_url: item.source_url,
+      source_url: finalUrl,
       content_hash: hash,
       relevance_score: item.relevance_score,
       published_at: item.published_at ?? null,
@@ -165,66 +191,13 @@ Extrai novidades relevantes dos últimos 90 dias, cada uma com a sua URL especí
       knownHashes.add(hash);
     }
   }
-  return { created, error: null };
+  return { created, dropped, error: null };
 }
 
-async function sendAlertEmail(
-  to: string,
-  detection: { id: string; title: string; summary: string; source_name: string; source_url: string | null },
-  origin: string,
-) {
-  const { buildApprovalUrls } = await import("./tokens.server");
-  const { approveUrl, rejectUrl } = buildApprovalUrls(origin, detection.id);
-  // Try Brevo connector if available; otherwise log.
-  const lovableKey = process.env.LOVABLE_API_KEY;
-  const brevoKey = process.env.BREVO_API_KEY;
-  if (!lovableKey || !brevoKey) {
-    console.warn("[alert] Brevo não conectado — alerta apenas registado:", {
-      to,
-      detection_id: detection.id,
-      approveUrl,
-      rejectUrl,
-    });
-    return { sent: false, approveUrl, rejectUrl };
-  }
-  const html = `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#0f172a;">
-    <h2 style="color:#0f5e8f;">Nova deteção SEPRI</h2>
-    <p style="font-size:13px;color:#64748b;margin:0 0 4px;">Fonte: <strong>${detection.source_name}</strong></p>
-    <h3 style="margin:8px 0 4px;">${escapeHtml(detection.title)}</h3>
-    <p style="line-height:1.5;">${escapeHtml(detection.summary)}</p>
-    ${detection.source_url ? `<p style="font-size:13px;"><a href="${detection.source_url}">Ver fonte original →</a></p>` : ""}
-    <p style="margin:24px 0 8px;font-weight:600;">É relevante avançar com a criação da newsletter?</p>
-    <p>
-      <a href="${approveUrl}" style="background:#0f5e8f;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin-right:8px;">✅ Aprovar</a>
-      <a href="${rejectUrl}" style="background:#e2e8f0;color:#0f172a;padding:12px 20px;border-radius:6px;text-decoration:none;display:inline-block;">❌ Rejeitar</a>
-    </p>
-    <p style="font-size:11px;color:#94a3b8;margin-top:24px;">Token válido por 14 dias. Após aprovação, a newsletter é gerada automaticamente e fica disponível no dashboard SEPRI.</p>
-  </div>`;
-  try {
-    const r = await fetch("https://connector-gateway.lovable.dev/brevo/smtp/email", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": brevoKey,
-      },
-      body: JSON.stringify({
-        sender: { name: "SEPRI Newsletter Bot", email: "no-reply@sepri.pt" },
-        to: [{ email: to }],
-        subject: `[SEPRI] ${detection.source_name}: ${detection.title}`,
-        htmlContent: html,
-      }),
-    });
-    if (!r.ok) {
-      const t = await r.text();
-      console.error("Brevo send failed", r.status, t);
-      return { sent: false, approveUrl, rejectUrl, error: `Brevo ${r.status}` };
-    }
-    return { sent: true, approveUrl, rejectUrl };
-  } catch (e) {
-    console.error("Brevo send error", e);
-    return { sent: false, approveUrl, rejectUrl, error: String(e) };
-  }
+function timeoutSignal(ms: number) {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
 }
 
 function escapeHtml(s: string) {
@@ -318,10 +291,7 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
     }
   }
 
-  // Send alert emails in parallel too
-
-
-  // Send alerts for new pending detections from this run
+  // Fetch the new detections from this run for the summary email.
   const { data: newPending } = await admin
     .from("detections")
     .select("id,title,summary,source_name,source_url")
@@ -329,7 +299,6 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
     .gte("detected_at", new Date(Date.now() - 5 * 60_000).toISOString())
     .order("relevance_score", { ascending: false })
     .limit(20);
-  await Promise.all((newPending ?? []).map((d) => sendAlertEmail(alertEmail, d, origin)));
 
   await admin
     .from("scan_runs")
@@ -341,14 +310,16 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
     })
     .eq("id", runId);
 
-  // Email-resumo do scan (apenas para scans automáticos diários)
-  if (triggeredBy === "cron") {
+  // Um único email de resumo por scan (manual ou cron), com botões
+  // aprovar/rejeitar por deteção. Só se houver deteções novas relevantes.
+  if ((newPending ?? []).length > 0) {
     await sendScanSummaryEmail(alertEmail, {
       scanned,
       created: totalCreated,
       errors,
       detections: newPending ?? [],
       origin,
+      triggeredBy,
     });
   }
 
@@ -363,6 +334,7 @@ async function sendScanSummaryEmail(
     errors: { source: string; error: string }[];
     detections: { id: string; title: string; summary: string; source_name: string; source_url: string | null }[];
     origin: string;
+    triggeredBy: "cron" | "manual";
   },
 ) {
   const lovableKey = process.env.LOVABLE_API_KEY;
@@ -375,20 +347,24 @@ async function sendScanSummaryEmail(
     });
     return;
   }
+  const { buildApprovalUrls } = await import("./tokens.server");
   const today = new Date().toLocaleDateString("pt-PT", { day: "2-digit", month: "long", year: "numeric" });
   const inboxUrl = `${data.origin}/inbox`;
-  const detectionsHtml = data.detections.length
-    ? data.detections
-        .map(
-          (d) => `<li style="margin:0 0 12px;">
-            <strong>${escapeHtml(d.title)}</strong><br/>
-            <span style="font-size:12px;color:#64748b;">${escapeHtml(d.source_name)}</span><br/>
-            <span style="font-size:13px;color:#334155;">${escapeHtml(d.summary)}</span>
-            ${d.source_url ? `<br/><a href="${d.source_url}" style="font-size:12px;color:#0f5e8f;">Ver fonte →</a>` : ""}
-          </li>`,
-        )
-        .join("")
-    : `<li style="color:#64748b;">Sem novas deteções relevantes hoje.</li>`;
+  const detectionsHtml = data.detections
+    .map((d) => {
+      const { approveUrl, rejectUrl } = buildApprovalUrls(data.origin, d.id);
+      return `<div style="margin:0 0 20px;padding:14px 16px;border:1px solid #e2e8f0;border-radius:8px;">
+        <div style="font-size:12px;color:#64748b;margin-bottom:4px;">${escapeHtml(d.source_name)}</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px;">${escapeHtml(d.title)}</div>
+        <div style="font-size:13px;color:#334155;line-height:1.55;margin-bottom:10px;">${escapeHtml(d.summary)}</div>
+        ${d.source_url ? `<div style="margin-bottom:12px;"><a href="${d.source_url}" style="font-size:12px;color:#0f5e8f;">Ver notícia original →</a></div>` : ""}
+        <div>
+          <a href="${approveUrl}" style="background:#0f5e8f;color:#fff;padding:9px 16px;border-radius:6px;text-decoration:none;display:inline-block;font-size:13px;margin-right:6px;">✅ Aprovar</a>
+          <a href="${rejectUrl}" style="background:#e2e8f0;color:#0f172a;padding:9px 16px;border-radius:6px;text-decoration:none;display:inline-block;font-size:13px;">❌ Rejeitar</a>
+        </div>
+      </div>`;
+    })
+    .join("");
   const errorsHtml = data.errors.length
     ? `<p style="margin:16px 0 4px;font-weight:600;color:#b91c1c;">Erros (${data.errors.length}):</p>
        <ul style="padding-left:18px;color:#b91c1c;font-size:13px;">${data.errors
@@ -396,21 +372,22 @@ async function sendScanSummaryEmail(
          .join("")}</ul>`
     : "";
 
+  const kind = data.triggeredBy === "cron" ? "diário automático" : "manual";
   const html = `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#0f172a;">
-    <h2 style="color:#0f5e8f;margin:0 0 4px;">Resumo do scan diário SEPRI</h2>
+    <h2 style="color:#0f5e8f;margin:0 0 4px;">Resumo do scan ${kind} SEPRI</h2>
     <p style="margin:0 0 16px;color:#64748b;font-size:13px;">${today}</p>
     <table style="border-collapse:collapse;margin:0 0 16px;">
       <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Fontes analisadas:</td><td style="font-weight:600;">${data.scanned}</td></tr>
       <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Novas deteções:</td><td style="font-weight:600;">${data.created}</td></tr>
       <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Erros:</td><td style="font-weight:600;">${data.errors.length}</td></tr>
     </table>
-    <h3 style="margin:16px 0 8px;">Deteções desta execução</h3>
-    <ul style="padding-left:18px;">${detectionsHtml}</ul>
+    <h3 style="margin:16px 0 8px;">Novas deteções</h3>
+    ${detectionsHtml}
     ${errorsHtml}
     <p style="margin:24px 0 8px;">
       <a href="${inboxUrl}" style="background:#0f5e8f;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block;">Abrir caixa de entrada</a>
     </p>
-    <p style="font-size:11px;color:#94a3b8;margin-top:24px;">Scan automático SEPRI · executado diariamente às 07:00 (Lisboa).</p>
+    <p style="font-size:11px;color:#94a3b8;margin-top:24px;">Aprovar/Rejeitar aciona o registo diretamente — tokens válidos por 14 dias.</p>
   </div>`;
 
   try {
@@ -424,7 +401,7 @@ async function sendScanSummaryEmail(
       body: JSON.stringify({
         sender: { name: "SEPRI Newsletter Bot", email: "no-reply@sepri.pt" },
         to: [{ email: to }],
-        subject: `[SEPRI] Resumo do scan diário — ${data.created} nova(s) deteção(ões)`,
+        subject: `[SEPRI] Scan ${kind} — ${data.created} nova(s) deteção(ões)`,
         htmlContent: html,
       }),
     });
