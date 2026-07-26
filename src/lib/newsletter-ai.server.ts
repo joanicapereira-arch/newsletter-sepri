@@ -152,27 +152,31 @@ export async function generateCombinedNewsletterHtml(
   chrome: ChromeInput,
 ) {
   const ai = createLovableAi(requireLovableApiKey());
-  const { output } = await generateText({
-    model: ai(MODEL),
-    output: Output.object({
-      schema: z.object({
-        subject: z.string().describe("Assunto Brevo único, até 80 caracteres, que resume o conjunto"),
-        intro: z.object({
-          overtitle: z.string().optional(),
-          title: z.string(),
-          lead: z.string(),
+  let subject = items.length === 1 ? items[0].title.slice(0, 80) : "Atualizações SEPRI";
+  let intro: NewsletterDocument["composite_intro"] | undefined;
+  let enrichedItems: NewsletterItemContent[];
+  try {
+    const { output } = await generateText({
+      model: ai(MODEL),
+      output: Output.object({
+        schema: z.object({
+          subject: z.string().describe("Assunto Brevo único, até 80 caracteres, que resume o conjunto"),
+          intro: z.object({
+            overtitle: z.string().optional(),
+            title: z.string(),
+            lead: z.string(),
+          }),
+          items: z.array(ItemContentSchema).min(1),
         }),
-        items: z.array(ItemContentSchema).min(1),
       }),
-    }),
-    system: `${SYSTEM_BASE}
+      system: `${SYSTEM_BASE}
 
 Vais redigir UMA newsletter que agrega várias atualizações. Escreve um bloco de introdução
 comum (overtitle opcional, título H1 unificador e lead de 1-2 frases) e depois um bloco
 completo para cada atualização, seguindo a mesma estrutura visual (overtitle, título,
 subtítulo opcional, intro, secções com emojis, orientações quando aplicável, fecho).
 Mantém a ordem original das atualizações.`,
-    prompt: `Atualizações a incluir (pela ordem):
+      prompt: `Atualizações a incluir (pela ordem):
 
 ${items
   .map(
@@ -186,18 +190,30 @@ Resumo: ${d.summary}${d.source_url ? `\nURL: ${d.source_url}` : ""}${
   .join("\n\n")}
 
 Redige a newsletter agregada.`,
-  });
-
-  const enrichedItems: NewsletterItemContent[] = output.items.map((it, idx) => ({
-    ...it,
-    source_name: items[idx]?.source_name,
-    source_url: items[idx]?.source_url ?? null,
-    published_at: items[idx]?.published_at ?? null,
-  }));
+    });
+    subject = output.subject;
+    intro = output.intro;
+    enrichedItems = output.items.map((it, idx) => ({
+      ...it,
+      source_name: items[idx]?.source_name,
+      source_url: items[idx]?.source_url ?? null,
+      published_at: items[idx]?.published_at ?? null,
+    }));
+    // If AI returned fewer items than requested, fill the rest with fallbacks
+    for (let i = enrichedItems.length; i < items.length; i++) {
+      enrichedItems.push(fallbackItemContent(items[i]));
+    }
+  } catch (err) {
+    console.error("[newsletter-ai] generateCombinedNewsletterHtml fallback:", err);
+    enrichedItems = items.map(fallbackItemContent);
+    intro = items.length > 1
+      ? { title: "Atualizações SEPRI", lead: "Resumo das últimas atualizações relevantes." }
+      : undefined;
+  }
 
   const doc: NewsletterDocument = {
-    subject: output.subject,
-    composite_intro: output.intro,
+    subject,
+    composite_intro: intro,
     items: enrichedItems,
   };
 
@@ -206,5 +222,5 @@ Redige a newsletter agregada.`,
     disclaimerHtml: chrome.disclaimer_html,
   });
 
-  return { subject: output.subject, html };
+  return { subject, html };
 }
