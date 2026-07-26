@@ -64,12 +64,15 @@ function InboxPage() {
           ? "Marcada como Informativo"
           : vars.category === "prioritario"
             ? "Marcada como Prioritário"
-            : "Rejeitada";
+            : vars.category === "rejected"
+              ? "Rejeitada"
+              : "Devolvida a Pendentes";
       toast.success(label);
       qc.invalidateQueries({ queryKey: ["detections"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
   const scanMut = useMutation({
     mutationFn: () => triggerManualScan(),
     onSuccess: (r) => {
