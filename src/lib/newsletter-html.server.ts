@@ -111,6 +111,7 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
       ${introBlock}
       <tr><td style="padding:32px 40px;background:#ffffff;">
         ${bodyBlock}
+        ${doc.cta ? renderCta(doc.cta) : (!isComposite && doc.items[0]?.cta ? "" : "")}
       </td></tr>
       <tr><td style="padding:24px 32px;background:${NAVY};color:#ffffff;">
         <p style="margin:0 0 6px;font-size:15px;font-weight:700;letter-spacing:0.5px;">SEPRI — Medicina no Trabalho, Lda.</p>
@@ -127,6 +128,13 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
 </table>
 </body>
 </html>`;
+}
+
+function renderCta(cta: NewsletterCta): string {
+  const href = cta.url ?? "https://www.sepri.pt/contactos";
+  return `<div style="margin:36px 0 8px;text-align:center;">
+    <a href="${esc(href)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;padding:16px 34px;border-radius:4px;font-size:14px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;">${esc(cta.label)}</a>
+  </div>`;
 }
 
 function renderHero(opts: { overtitle?: string; title: string; subtitle?: string }): string {
