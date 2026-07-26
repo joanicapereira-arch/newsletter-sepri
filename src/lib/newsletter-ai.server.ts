@@ -42,6 +42,14 @@ const GuidelinesSchema = z.object({
   items: z.array(z.string()),
 });
 
+const ResourceSchema = z.object({
+  heading: z.string().describe(
+    "Título do bloco de destaque, ex: 'Descarregue o nosso panfleto informativo' ou 'Descarregue o documento relacionado'",
+  ),
+  image_url: z.string().optional().describe("Deixa vazio — a imagem é adicionada manualmente pela Eliana antes do envio."),
+  link_url: z.string().optional().describe("URL do documento/recurso a descarregar, se mencionado na fonte."),
+});
+
 const CtaSchema = z.object({
   label: z.string().describe("Texto do botão em maiúsculas, ex: 'PEÇA UMA PROPOSTA PERSONALIZADA'"),
   url: z.string().optional().describe("URL opcional; se vazio, usa contactos SEPRI"),
@@ -68,6 +76,9 @@ const ItemContentSchema = z.object({
   guidelines: GuidelinesSchema.optional().describe(
     "Preencher quando a notícia contém orientações, recomendações, medidas ou instruções claras.",
   ),
+  resource: ResourceSchema.optional().describe(
+    "Preencher APENAS quando a notícia/fonte menciona explicitamente um documento, panfleto, guia ou material para descarregar. Não inventes um recurso quando a fonte não o tem.",
+  ),
   closing_paragraph: z.string().optional().describe("Parágrafo curto que convida à ação antes do CTA."),
   cta: CtaSchema.optional().describe(
     "Botão final. Preencher SEMPRE que a newsletter promove um serviço SEPRI (quase sempre).",
@@ -78,7 +89,6 @@ const SYSTEM_BASE = `És redator de marketing técnico da SEPRI Group (medicina 
 A newsletter serve dois públicos em simultâneo: comunicação interna e comunicação para
 CLIENTES E POTENCIAIS CLIENTES da SEPRI. O tom é profissional e informativo MAS orientado
 ao negócio: mostra sempre como o tema afeta as empresas e como a SEPRI pode apoiar.
-
 Podes usar "a sua empresa", "as suas equipas", "os seus colaboradores". Podes usar "a SEPRI",
 "na SEPRI, promovemos...", "disponibilizamos". Escreve em português europeu.
 
@@ -110,6 +120,22 @@ ESTRUTURA OBRIGATÓRIA de cada newsletter (segue por esta ordem):
 
 Cada secção deve ter um ícone/emoji relevante (📋, 🏥, 💼, 📉, 🛡️, 💡, ✅, 🫁, 🌿, ⚖️, 📅…).
 NÃO inventes números, estatísticas ou factos que não constam da fonte.`;
+
+function mapResource(raw: { heading: string; image_url?: string; link_url?: string } | undefined) {
+  if (!raw) return undefined;
+  return {
+    heading: raw.heading,
+    imageUrl: raw.image_url || undefined,
+    linkUrl: raw.link_url || undefined,
+  };
+}
+
+function mapAiContent<T extends { resource?: { heading: string; image_url?: string; link_url?: string } }>(
+  raw: T,
+): Omit<T, "resource"> & { resource?: ReturnType<typeof mapResource> } {
+  const { resource, ...rest } = raw;
+  return { ...rest, resource: mapResource(resource) };
+}
 
 function fallbackItemContent(d: DetectionInput): NewsletterItemContent {
   const paragraphs = d.summary
@@ -153,7 +179,7 @@ Redige a newsletter completa seguindo a estrutura visual SEPRI.`,
     });
     subject = output.subject;
     content = {
-      ...output.content,
+      ...mapAiContent(output.content),
       source_name: d.source_name,
       source_url: d.source_url,
       published_at: d.published_at ?? null,
@@ -179,6 +205,7 @@ export async function generateCombinedNewsletterHtml(
   let subject = items.length === 1 ? items[0].title.slice(0, 80) : "Atualizações SEPRI";
   let intro: NewsletterDocument["composite_intro"] | undefined;
   let enrichedItems: NewsletterItemContent[];
+
   try {
     const { output } = await generateText({
       model: ai(MODEL),
@@ -201,7 +228,6 @@ completo para cada atualização, seguindo a mesma estrutura visual (overtitle, 
 subtítulo opcional, intro, secções com emojis, orientações quando aplicável, fecho).
 Mantém a ordem original das atualizações.`,
       prompt: `Atualizações a incluir (pela ordem):
-
 ${items
   .map(
     (d, i) =>
@@ -218,12 +244,11 @@ Redige a newsletter agregada.`,
     subject = output.subject;
     intro = output.intro;
     enrichedItems = output.items.map((it, idx) => ({
-      ...it,
+      ...mapAiContent(it),
       source_name: items[idx]?.source_name,
       source_url: items[idx]?.source_url ?? null,
       published_at: items[idx]?.published_at ?? null,
     }));
-    // If AI returned fewer items than requested, fill the rest with fallbacks
     for (let i = enrichedItems.length; i < items.length; i++) {
       enrichedItems.push(fallbackItemContent(items[i]));
     }
@@ -240,11 +265,9 @@ Redige a newsletter agregada.`,
     composite_intro: intro,
     items: enrichedItems,
   };
-
   const html = renderNewsletterHtml(doc, {
     logoUrl: chrome.logo_url,
     disclaimerHtml: chrome.disclaimer_html,
   });
-
   return { subject, html };
 }
