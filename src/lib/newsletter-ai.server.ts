@@ -39,22 +39,23 @@ const SectionSchema = z.object({
 const GuidelinesSchema = z.object({
   heading: z.string(),
   intro: z.string().optional(),
-  items: z.array(z.string()).min(1),
+  items: z.array(z.string()),
 });
 
 const ItemContentSchema = z.object({
   overtitle: z
     .string()
+    .optional()
     .describe("Kicker curto em maiúsculas (2-5 palavras), estilo 'NARIZ, PULMÕES E PRODUTIVIDADE'"),
   title: z.string().describe("H1 principal, curto e apelativo, frequentemente em forma de pergunta"),
   subtitle: z
     .string()
     .optional()
     .describe("Subtítulo curto que complementa o H1 (opcional)"),
-  intro_paragraphs: z.array(z.string()).min(1).max(3),
-  sections: z.array(SectionSchema).min(2).max(6),
+  intro_paragraphs: z.array(z.string()).default([]),
+  sections: z.array(SectionSchema).default([]),
   guidelines: GuidelinesSchema.optional().describe(
-    "Preencher OBRIGATORIAMENTE quando a notícia contém orientações, recomendações, medidas ou instruções claras. Deixar vazio caso a notícia seja meramente informativa sem orientações práticas.",
+    "Preencher quando a notícia contém orientações, recomendações, medidas ou instruções claras. Deixar vazio caso a notícia seja meramente informativa sem orientações práticas.",
   ),
   closing_paragraph: z.string().optional(),
 });
