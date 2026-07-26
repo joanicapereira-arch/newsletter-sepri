@@ -2,12 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import { createLovableAi, requireLovableApiKey } from "./ai-gateway.server";
-import { firecrawlDeepScrape, resolveUrlForTitle } from "./firecrawl.server";
+import { firecrawlDeepScrape, resolveUrlCandidatesForTitle, verifyArticleUrl } from "./firecrawl.server";
 
 const MODEL = "google/gemini-3-flash-preview";
 const SOURCE_CONCURRENCY = 3;
-
-
 
 interface SourceRow {
   id: string;
@@ -40,12 +38,11 @@ function renderExamples(ex: LearningExamples): string {
 async function scanOneSource(source: SourceRow, knownHashes: Set<string>, examples: LearningExamples) {
   const deep = await firecrawlDeepScrape(source.url, { maxPages: 1, perPageChars: 2500 });
   const content = deep.markdown.slice(0, 14000);
-  if (!content) return { created: 0, error: null as string | null };
+  if (!content) return { created: 0, dropped: [] as string[], error: null as string | null };
 
   const apiKey = requireLovableApiKey();
   const ai = createLovableAi(apiKey);
 
-  // Janela temporal: últimos 90 dias
   const today = new Date();
   const cutoff = new Date(today.getTime() - 90 * 86400_000);
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
@@ -77,11 +74,12 @@ published_at: data ISO (YYYY-MM-DD) se conseguires inferir, senão null.
 relevance_score: 0-100 (100 = altamente crítico).
 
 ⚠️ REGRA CRÍTICA — source_url:
-- Cada item TEM de ter a URL ESPECÍFICA da notícia/diploma/página, NUNCA a URL raiz da fonte (${source.url}).
+- Cada item TEM de ter a URL ESPECÍFICA da notícia/diploma/página, NUNCA a URL raiz da fonte (${source.url}), e NUNCA uma página de listagem/índice de notícias.
 - Procura a URL correta na lista de "URLs candidatas recentes/temáticas" ou nos links dentro do markdown (ex: em cabeçalhos [título](url), listas de notícias, "ler mais", "detalhe", etc.).
 - Para o Diário da República, usa a URL de detalhe do diploma (ex: https://diariodarepublica.pt/dr/detalhe/...).
 - Para o ACT, a URL da página temática específica (ex: https://portal.act.gov.pt/Pages/xxx.aspx).
-- Se não conseguires identificar uma URL específica e concreta para o item, DEIXA source_url a null — nunca uses a URL raiz como preenchimento.${renderExamples(examples)}`,
+- NUNCA inventes ou "adivinhes" uma URL que não vejas literalmente no conteúdo fornecido — só copia URLs que existem de facto na lista de candidatas ou nos links do markdown.
+- Se não conseguires identificar uma URL específica e concreta para o item, DEIXA source_url a null — nunca uses a URL raiz nem uma URL inventada como preenchimento.${renderExamples(examples)}`,
     prompt: `Fonte: ${source.name}
 URL raiz (NÃO usar como source_url de itens): ${source.url}
 Palavras-chave de interesse: ${source.keywords.join(", ")}
@@ -96,46 +94,41 @@ Extrai novidades relevantes dos últimos 90 dias, cada uma com a sua URL especí
   });
 
   const rootNorm = source.url.replace(/\/$/, "");
-  const items = output.items
-    .filter((i) => i.title && i.summary && i.relevance_score >= 40)
-    .map((i) => {
-      const url = i.source_url?.trim();
-      let normalized: string | null =
-        !url || url === source.url || url.replace(/\/$/, "") === rootNorm ? null : url;
-      if (!normalized) {
-        normalized = resolveUrlForTitle(i.title, deep.links, source.url);
-      }
-      return { ...i, source_url: normalized };
-    });
+  const rawItems = output.items.filter((i) => i.title && i.summary && i.relevance_score >= 40);
 
-  // Resolve redirects (e.g. Google News, feed proxies) → final destination URL.
-  await Promise.all(
-    items.map(async (item) => {
-      if (!item.source_url) return;
-      try {
-        const r = await fetch(item.source_url, {
-          method: "GET",
-          redirect: "follow",
-          signal: timeoutSignal(6000),
-        });
-        if (r.url && r.url !== item.source_url) {
-          item.source_url = r.url;
+  const itemsWithCandidates = rawItems.map((i) => {
+    const aiUrl = i.source_url?.trim();
+    const aiIsUsable = !!aiUrl && aiUrl.replace(/\/$/, "") !== rootNorm;
+    const fuzzyCandidates = resolveUrlCandidatesForTitle(i.title, deep.links, source.url, {
+      minScore: 0.35,
+      limit: 3,
+    });
+    const candidates = [...(aiIsUsable ? [aiUrl!] : []), ...fuzzyCandidates].filter(
+      (u, idx, arr) => arr.indexOf(u) === idx,
+    );
+    return { ...i, candidates };
+  });
+
+  const items = await Promise.all(
+    itemsWithCandidates.map(async (item) => {
+      let validUrl: string | null = null;
+      for (const candidate of item.candidates) {
+        const verified = await verifyArticleUrl(candidate, item.title);
+        if (verified) {
+          validUrl = verified;
+          break;
         }
-      } catch {
-        /* keep original */
       }
+      return { ...item, source_url: validUrl };
     }),
   );
 
-  // Published date fallback
   await Promise.all(
     items.map(async (item) => {
-      if (item.published_at) return;
-      const url = item.source_url ?? source.url;
-      if (!url || url === source.url) return;
+      if (item.published_at || !item.source_url) return;
       try {
         const { firecrawlScrape } = await import("./firecrawl.server");
-        const page = await firecrawlScrape(url, 150, 6000);
+        const page = await firecrawlScrape(item.source_url, 150, 6000);
         const md = (page?.markdown ?? "").slice(0, 6000);
         if (!md) return;
         const { output: dateOut } = await generateText({
@@ -144,7 +137,7 @@ Extrai novidades relevantes dos últimos 90 dias, cada uma com a sua URL especí
             schema: z.object({ published_at: z.string().nullable() }),
           }),
           system: `Extrai a data de publicação da notícia/diploma a partir do conteúdo da página. Devolve YYYY-MM-DD ou null se mesmo não conseguires inferir. Procura por "Publicado em", "Data:", datas no formato DD/MM/AAAA, DD-MM-AAAA, ou referências como "1 de janeiro de 2025". Para diplomas do DRE usa a data do diploma.`,
-          prompt: `Título: ${item.title}\nURL: ${url}\n\nConteúdo:\n${md}`,
+          prompt: `Título: ${item.title}\nURL: ${item.source_url}\n\nConteúdo:\n${md}`,
         });
         if (dateOut.published_at && /^\d{4}-\d{2}-\d{2}$/.test(dateOut.published_at)) {
           item.published_at = dateOut.published_at;
@@ -160,17 +153,11 @@ Extrai novidades relevantes dos últimos 90 dias, cada uma com a sua URL especí
   let created = 0;
   const dropped: string[] = [];
   for (const item of items) {
-    // Validação obrigatória: URL específico do artigo. Nunca guardamos
-    // deteções que apontem para a raiz da fonte (homepage/feed/listagem).
-    const finalUrl = item.source_url?.trim() ?? "";
-    const isRoot =
-      !finalUrl ||
-      finalUrl === source.url ||
-      finalUrl.replace(/\/$/, "") === rootNorm;
-    if (isRoot) {
+    if (!item.source_url) {
       dropped.push(item.title);
       continue;
     }
+    const finalUrl = item.source_url;
     const hash = createHash("sha256")
       .update(`${source.id}:${item.title.toLowerCase().trim()}`)
       .digest("hex")
@@ -192,12 +179,6 @@ Extrai novidades relevantes dos últimos 90 dias, cada uma com a sua URL especí
     }
   }
   return { created, dropped, error: null };
-}
-
-function timeoutSignal(ms: number) {
-  const controller = new AbortController();
-  setTimeout(() => controller.abort(), ms);
-  return controller.signal;
 }
 
 function escapeHtml(s: string) {
@@ -235,9 +216,6 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
     .from("sources")
     .select("id,name,url,description,keywords")
     .eq("active", true);
-  // Dedupe contra TODO o histórico de deteções (qualquer estado, qualquer data)
-  // — garante que itens já vistos, aprovados, rejeitados ou já usados em
-  // newsletters não voltam a gerar alerta.
   const { data: known } = await admin
     .from("detections")
     .select("content_hash");
@@ -250,7 +228,6 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
     .single();
   const alertEmail = config?.alert_email ?? "joanicapereira@gmail.com";
 
-  // Carrega exemplos de aprendizagem: últimas decisões da Eliana
   const [{ data: approvedRows }, { data: rejectedRows }] = await Promise.all([
     admin
       .from("detections")
@@ -273,15 +250,14 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
   const errors: { source: string; error: string }[] = [];
   let totalCreated = 0;
   let scanned = 0;
-  // Scan with bounded concurrency to avoid API/backend contention.
   const results = await mapWithConcurrency((sources ?? []) as SourceRow[], SOURCE_CONCURRENCY, async (src) => {
-      try {
-        const res = await scanOneSource(src, knownHashes, examples);
-        return { ok: true as const, created: res.created };
-      } catch (e) {
-        return { ok: false as const, source: src.name, error: String((e as Error).message ?? e) };
-      }
-    });
+    try {
+      const res = await scanOneSource(src, knownHashes, examples);
+      return { ok: true as const, created: res.created };
+    } catch (e) {
+      return { ok: false as const, source: src.name, error: String((e as Error).message ?? e) };
+    }
+  });
   for (const r of results) {
     if (r.ok) {
       totalCreated += r.created;
@@ -291,7 +267,6 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
     }
   }
 
-  // Fetch the new detections from this run for the summary email.
   const { data: newPending } = await admin
     .from("detections")
     .select("id,title,summary,source_name,source_url")
@@ -299,6 +274,20 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
     .gte("detected_at", new Date(Date.now() - 5 * 60_000).toISOString())
     .order("relevance_score", { ascending: false })
     .limit(20);
+
+  if ((newPending ?? []).length > 0) {
+    const emailResult = await sendScanSummaryEmail(alertEmail, {
+      scanned,
+      created: totalCreated,
+      errors,
+      detections: newPending ?? [],
+      origin,
+      triggeredBy,
+    });
+    if (!emailResult.ok) {
+      errors.push({ source: "Email de alertas", error: emailResult.reason });
+    }
+  }
 
   await admin
     .from("scan_runs")
@@ -310,21 +299,10 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
     })
     .eq("id", runId);
 
-  // Um único email de resumo por scan (manual ou cron), com botões
-  // aprovar/rejeitar por deteção. Só se houver deteções novas relevantes.
-  if ((newPending ?? []).length > 0) {
-    await sendScanSummaryEmail(alertEmail, {
-      scanned,
-      created: totalCreated,
-      errors,
-      detections: newPending ?? [],
-      origin,
-      triggeredBy,
-    });
-  }
-
   return { runId, scanned, created: totalCreated, errors };
 }
+
+type EmailResult = { ok: true } | { ok: false; reason: string };
 
 async function sendScanSummaryEmail(
   to: string,
@@ -336,16 +314,15 @@ async function sendScanSummaryEmail(
     origin: string;
     triggeredBy: "cron" | "manual";
   },
-) {
+): Promise<EmailResult> {
   const lovableKey = process.env.LOVABLE_API_KEY;
   const brevoKey = process.env.BREVO_API_KEY;
   if (!lovableKey || !brevoKey) {
-    console.warn("[scan-summary] Brevo não conectado — resumo apenas registado", {
-      to,
-      scanned: data.scanned,
-      created: data.created,
-    });
-    return;
+    const reason = !brevoKey
+      ? "Conector Brevo não está ligado (BREVO_API_KEY em falta nas secrets do Lovable Cloud)."
+      : "LOVABLE_API_KEY em falta.";
+    console.warn("[scan-summary] Email não enviado —", reason, { to, scanned: data.scanned, created: data.created });
+    return { ok: false, reason };
   }
   const { buildApprovalUrls } = await import("./tokens.server");
   const today = new Date().toLocaleDateString("pt-PT", { day: "2-digit", month: "long", year: "numeric" });
@@ -353,41 +330,42 @@ async function sendScanSummaryEmail(
   const detectionsHtml = data.detections
     .map((d) => {
       const { approveUrl, rejectUrl } = buildApprovalUrls(data.origin, d.id);
-      return `<div style="margin:0 0 20px;padding:14px 16px;border:1px solid #e2e8f0;border-radius:8px;">
-        <div style="font-size:12px;color:#64748b;margin-bottom:4px;">${escapeHtml(d.source_name)}</div>
-        <div style="font-weight:700;font-size:15px;margin-bottom:6px;">${escapeHtml(d.title)}</div>
-        <div style="font-size:13px;color:#334155;line-height:1.55;margin-bottom:10px;">${escapeHtml(d.summary)}</div>
-        ${d.source_url ? `<div style="margin-bottom:12px;"><a href="${d.source_url}" style="font-size:12px;color:#0f5e8f;">Ver notícia original →</a></div>` : ""}
-        <div>
-          <a href="${approveUrl}" style="background:#0f5e8f;color:#fff;padding:9px 16px;border-radius:6px;text-decoration:none;display:inline-block;font-size:13px;margin-right:6px;">✅ Aprovar</a>
-          <a href="${rejectUrl}" style="background:#e2e8f0;color:#0f172a;padding:9px 16px;border-radius:6px;text-decoration:none;display:inline-block;font-size:13px;">❌ Rejeitar</a>
-        </div>
-      </div>`;
+      return `
+      <tr><td style="padding:16px 0;border-bottom:1px solid #e5e7eb;">
+        <p style="margin:0 0 4px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;">${escapeHtml(d.source_name)}</p>
+        <p style="margin:0 0 8px;font-size:16px;font-weight:600;color:#0f172a;">${escapeHtml(d.title)}</p>
+        <p style="margin:0 0 12px;font-size:14px;color:#374151;line-height:1.5;">${escapeHtml(d.summary)}</p>
+        ${d.source_url ? `<p style="margin:0 0 12px;"><a href="${d.source_url}" style="color:#0891b2;font-size:13px;">Ver notícia original →</a></p>` : ""}
+        <p style="margin:0;">
+          <a href="${approveUrl}" style="display:inline-block;padding:8px 14px;background:#10b981;color:#fff;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;margin-right:8px;">✅ Aprovar</a>
+          <a href="${rejectUrl}" style="display:inline-block;padding:8px 14px;background:#ef4444;color:#fff;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;">❌ Rejeitar</a>
+        </p>
+      </td></tr>`;
     })
     .join("");
   const errorsHtml = data.errors.length
-    ? `<p style="margin:16px 0 4px;font-weight:600;color:#b91c1c;">Erros (${data.errors.length}):</p>
-       <ul style="padding-left:18px;color:#b91c1c;font-size:13px;">${data.errors
+    ? `<p style="margin:24px 0 8px;font-size:14px;font-weight:600;color:#b91c1c;">Erros (${data.errors.length}):</p>
+       <ul style="margin:0;padding-left:20px;color:#7f1d1d;font-size:13px;">${data.errors
          .map((e) => `<li>${escapeHtml(e.source)}: ${escapeHtml(e.error)}</li>`)
          .join("")}</ul>`
     : "";
 
   const kind = data.triggeredBy === "cron" ? "diário automático" : "manual";
-  const html = `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#0f172a;">
-    <h2 style="color:#0f5e8f;margin:0 0 4px;">Resumo do scan ${kind} SEPRI</h2>
-    <p style="margin:0 0 16px;color:#64748b;font-size:13px;">${today}</p>
-    <table style="border-collapse:collapse;margin:0 0 16px;">
-      <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Fontes analisadas:</td><td style="font-weight:600;">${data.scanned}</td></tr>
-      <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Novas deteções:</td><td style="font-weight:600;">${data.created}</td></tr>
-      <tr><td style="padding:4px 12px 4px 0;color:#64748b;">Erros:</td><td style="font-weight:600;">${data.errors.length}</td></tr>
+  const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#0f172a;">
+    <h1 style="margin:0 0 4px;font-size:20px;">Resumo do scan ${kind} SEPRI</h1>
+    <p style="margin:0 0 16px;color:#6b7280;font-size:13px;">${today}</p>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+      <tr><td style="padding:8px 0;font-size:14px;color:#374151;"><strong>Fontes analisadas:</strong> ${data.scanned}</td></tr>
+      <tr><td style="padding:8px 0;font-size:14px;color:#374151;"><strong>Novas deteções:</strong> ${data.created}</td></tr>
+      <tr><td style="padding:8px 0;font-size:14px;color:#374151;"><strong>Erros:</strong> ${data.errors.length}</td></tr>
     </table>
-    <h3 style="margin:16px 0 8px;">Novas deteções</h3>
-    ${detectionsHtml}
+    <h2 style="margin:24px 0 8px;font-size:16px;">Novas deteções</h2>
+    <table style="width:100%;border-collapse:collapse;">${detectionsHtml}</table>
     ${errorsHtml}
-    <p style="margin:24px 0 8px;">
-      <a href="${inboxUrl}" style="background:#0f5e8f;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block;">Abrir caixa de entrada</a>
+    <p style="margin:24px 0 0;">
+      <a href="${inboxUrl}" style="display:inline-block;padding:10px 18px;background:#0f172a;color:#fff;border-radius:6px;text-decoration:none;font-size:14px;">Abrir caixa de entrada</a>
     </p>
-    <p style="font-size:11px;color:#94a3b8;margin-top:24px;">Aprovar/Rejeitar aciona o registo diretamente — tokens válidos por 14 dias.</p>
+    <p style="margin:16px 0 0;font-size:11px;color:#9ca3af;">Aprovar/Rejeitar aciona o registo diretamente — tokens válidos por 14 dias.</p>
   </div>`;
 
   try {
@@ -408,9 +386,12 @@ async function sendScanSummaryEmail(
     if (!r.ok) {
       const t = await r.text();
       console.error("Brevo summary send failed", r.status, t);
+      return { ok: false, reason: `Brevo devolveu erro ${r.status}: ${t.slice(0, 200)}` };
     }
+    return { ok: true };
   } catch (e) {
     console.error("Brevo summary send error", e);
+    return { ok: false, reason: String((e as Error).message ?? e) };
   }
 }
 
@@ -419,4 +400,33 @@ export const triggerManualScan = createServerFn({ method: "POST" }).handler(asyn
   const host = getRequestHost();
   const origin = `https://${host}`;
   return runScan(origin, "manual");
+});
+
+export const sendTestAlertEmail = createServerFn({ method: "POST" }).handler(async () => {
+  const admin = await getAdmin();
+  const { getRequestHost } = await import("@tanstack/react-start/server");
+  const host = getRequestHost();
+  const origin = `https://${host}`;
+  const { data: config } = await admin.from("app_config").select("alert_email").eq("id", 1).single();
+  const alertEmail = config?.alert_email ?? "joanicapereira@gmail.com";
+  const result = await sendScanSummaryEmail(alertEmail, {
+    scanned: 0,
+    created: 0,
+    errors: [],
+    detections: [
+      {
+        id: "00000000-0000-0000-0000-000000000000",
+        title: "Email de teste — configuração de alertas SEPRI",
+        summary: "Se recebeste este email, a ligação ao Brevo está configurada corretamente.",
+        source_name: "Teste",
+        source_url: null,
+      },
+    ],
+    origin,
+    triggeredBy: "manual",
+  });
+  if (!result.ok) {
+    throw new Error(result.reason);
+  }
+  return { ok: true, to: alertEmail };
 });
