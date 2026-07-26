@@ -28,15 +28,8 @@ function NewslettersPage() {
     queryFn: () => getNewsletter({ data: { id: openId! } }),
     enabled: !!openId,
   });
-  const regenerate = useMutation({
-    mutationFn: () => regenerateAllNewsletters(),
-    onSuccess: (res) => {
-      toast.success(`${res.updated} newsletter(s) regeneradas com a nova estrutura`);
-      qc.invalidateQueries({ queryKey: ["newsletters"] });
-      qc.invalidateQueries({ queryKey: ["newsletter"] });
-    },
-    onError: () => toast.error("Falha ao regenerar newsletters"),
-  });
+
+
 
   async function copyHtml(html: string) {
     await navigator.clipboard.writeText(html);
