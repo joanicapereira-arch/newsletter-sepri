@@ -291,10 +291,7 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
     }
   }
 
-  // Send alert emails in parallel too
-
-
-  // Send alerts for new pending detections from this run
+  // Fetch the new detections from this run for the summary email.
   const { data: newPending } = await admin
     .from("detections")
     .select("id,title,summary,source_name,source_url")
@@ -302,7 +299,6 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
     .gte("detected_at", new Date(Date.now() - 5 * 60_000).toISOString())
     .order("relevance_score", { ascending: false })
     .limit(20);
-  await Promise.all((newPending ?? []).map((d) => sendAlertEmail(alertEmail, d, origin)));
 
   await admin
     .from("scan_runs")
@@ -314,14 +310,16 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
     })
     .eq("id", runId);
 
-  // Email-resumo do scan (apenas para scans automáticos diários)
-  if (triggeredBy === "cron") {
+  // Um único email de resumo por scan (manual ou cron), com botões
+  // aprovar/rejeitar por deteção. Só se houver deteções novas relevantes.
+  if ((newPending ?? []).length > 0) {
     await sendScanSummaryEmail(alertEmail, {
       scanned,
       created: totalCreated,
       errors,
       detections: newPending ?? [],
       origin,
+      triggeredBy,
     });
   }
 
