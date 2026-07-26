@@ -150,7 +150,7 @@ Extrai novidades relevantes dos últimos 90 dias, cada uma com a sua URL especí
       source_name: source.name,
       title: item.title,
       summary: item.summary,
-      source_url: item.source_url ?? source.url,
+      source_url: item.source_url,
       content_hash: hash,
       relevance_score: item.relevance_score,
       published_at: item.published_at ?? null,
