@@ -143,8 +143,18 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
         <strong style="display:block;font-size:13px;color:${INK};margin-bottom:12px;">SEPRI - Medicina no Trabalho Lda</strong>
         <div style="text-decoration:underline;">Avenida da Igreja nº42, 1 Dto, 1700-239 Lisboa</div>
         <div style="text-decoration:underline;">Rua Dr Loureiro Amorim nº183, 4710-487 Braga</div>
-        <div>www.sepri.pt · comunicacao@sepri.pt</div>
-        <div style="margin-top:16px;">${chrome.disclaimerHtml}</div>
+        <div style="text-decoration:underline;">Av. Kim Il Sung, no. 1078, Maputo, Moçambique</div>
+        <div style="text-decoration:underline;">Rua 6-1L, Bairro da Boavista, Luanda, Angola</div>
+        <div style="margin-top:6px;">www.sepri.pt · comunicacao@sepri.pt</div>
+        <div style="margin:18px 0;">
+          <span style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;background:${INK};color:#fff;margin:0 4px;font-size:11px;font-weight:bold;">in</span>
+          <span style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;background:${INK};color:#fff;margin:0 4px;font-size:11px;font-weight:bold;">ig</span>
+          <span style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;background:${INK};color:#fff;margin:0 4px;font-size:11px;font-weight:bold;">fb</span>
+          <span style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;background:${INK};color:#fff;margin:0 4px;font-size:11px;font-weight:bold;">yt</span>
+        </div>
+        <div>Este e-mail foi enviado para {{ contact.EMAIL }}.</div>
+        <div style="font-size:11px;color:#8a93a0;margin-top:16px;">${chrome.disclaimerHtml}</div>
+        <a href="{{ unsubscribe }}" style="display:inline-block;margin-top:10px;text-decoration:underline;color:#5a6472;font-size:12px;">Cancelar subscrição</a>
       </td></tr>
     </table>
   </td></tr>
@@ -236,17 +246,11 @@ function renderGuidelines(g: NewsletterGuidelines): string {
     ? `<p style="margin:0 0 10px;color:${MUTED};font-size:14px;line-height:1.6;">${fmt(g.intro)}</p>`
     : "";
   const items = g.items
-    .map(
-      (it) =>
-        `<li style="margin:0 0 6px;color:${INK};padding-left:4px;list-style:none;position:relative;"><span style="color:${NAVY};font-weight:bold;margin-right:8px;">✓</span>${fmt(it)}</li>`,
-    )
+    .map((it) => `<li style="margin:0 0 6px;color:${INK};"><span style="font-weight:bold;">${fmt(it)}</span></li>`)
     .join("");
-  return `<div style="margin:24px 0 8px;padding:20px 22px;background:${LIGHT_BG};border-left:4px solid ${NAVY};border-radius:6px;">
-    <div style="display:inline-block;background:${NAVY};color:#ffffff;padding:4px 12px;border-radius:12px;font-size:11px;letter-spacing:1px;font-weight:700;text-transform:uppercase;margin-bottom:10px;">Orientações</div>
-    <h3 style="font-size:15px;margin:0 0 8px;color:${INK};font-weight:bold;">${esc(g.heading)}</h3>
+  return `<h2 style="font-size:16px;margin:28px 0 10px;color:${INK};font-weight:bold;">✅ ${esc(g.heading)}</h2>
     ${intro}
-    <ul style="margin:0;padding:0;list-style:none;font-size:14px;line-height:1.6;">${items}</ul>
-  </div>`;
+    <ul style="margin:8px 0 16px;padding-left:20px;font-size:14px;line-height:1.6;">${items}</ul>`;
 }
 
 function renderSourceLine(item: NewsletterItemContent): string {
