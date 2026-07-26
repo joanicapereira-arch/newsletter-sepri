@@ -87,10 +87,10 @@ export const generateNewsletterFromSelection = createServerFn({ method: "POST" }
       subject,
       html,
     });
-    // mark as approved if still pending
+    // Bump any still-pending items to 'informativo' when generating the newsletter
     await admin
       .from("detections")
-      .update({ status: "approved", decided_at: new Date().toISOString() })
+      .update({ status: "informativo", decided_at: new Date().toISOString() })
       .in("id", ordered.map((d) => d.id))
       .eq("status", "pending");
     return { ok: true, count: ordered.length };
