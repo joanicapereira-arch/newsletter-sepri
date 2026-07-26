@@ -24,6 +24,11 @@ export interface NewsletterGuidelines {
   items: string[];
 }
 
+export interface NewsletterCta {
+  label: string;
+  url?: string;
+}
+
 export interface NewsletterItemContent {
   overtitle?: string; // kicker ribbon text
   title: string; // big H1
@@ -32,6 +37,7 @@ export interface NewsletterItemContent {
   sections: NewsletterSection[];
   guidelines?: NewsletterGuidelines;
   closing_paragraph?: string;
+  cta?: NewsletterCta;
   source_name?: string;
   source_url?: string | null;
   published_at?: string | null;
@@ -45,6 +51,7 @@ export interface NewsletterDocument {
     lead: string;
   };
   items: NewsletterItemContent[];
+  cta?: NewsletterCta;
 }
 
 export interface NewsletterChrome {
@@ -104,6 +111,7 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
       ${introBlock}
       <tr><td style="padding:32px 40px;background:#ffffff;">
         ${bodyBlock}
+        ${doc.cta ? renderCta(doc.cta) : (!isComposite && doc.items[0]?.cta ? "" : "")}
       </td></tr>
       <tr><td style="padding:24px 32px;background:${NAVY};color:#ffffff;">
         <p style="margin:0 0 6px;font-size:15px;font-weight:700;letter-spacing:0.5px;">SEPRI — Medicina no Trabalho, Lda.</p>
@@ -120,6 +128,13 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
 </table>
 </body>
 </html>`;
+}
+
+function renderCta(cta: NewsletterCta): string {
+  const href = cta.url ?? "https://www.sepri.pt/contactos";
+  return `<div style="margin:36px 0 8px;text-align:center;">
+    <a href="${esc(href)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;padding:16px 34px;border-radius:4px;font-size:14px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;">${esc(cta.label)}</a>
+  </div>`;
 }
 
 function renderHero(opts: { overtitle?: string; title: string; subtitle?: string }): string {
@@ -156,10 +171,11 @@ function renderItemBody(item: NewsletterItemContent | undefined): string {
   const sections = (item.sections ?? []).map(renderSection).join("\n");
   const guidelines = item.guidelines ? renderGuidelines(item.guidelines) : "";
   const closing = item.closing_paragraph
-    ? `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:28px 0 0;">${esc(item.closing_paragraph)}</p>`
+    ? `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:28px 0 0;">${fmt(item.closing_paragraph)}</p>`
     : "";
+  const cta = item.cta ? renderCta(item.cta) : "";
   const sourceLine = renderSourceLine(item);
-  return `${sections}${guidelines}${closing}${sourceLine}`;
+  return `${sections}${guidelines}${closing}${cta}${sourceLine}`;
 }
 
 function renderCompositeItem(item: NewsletterItemContent, idx: number): string {
@@ -177,17 +193,18 @@ function renderCompositeItem(item: NewsletterItemContent, idx: number): string {
   const intro = (item.intro_paragraphs ?? [])
     .map(
       (p) =>
-        `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:0 0 14px;">${esc(p)}</p>`,
+        `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:0 0 14px;">${fmt(p)}</p>`,
     )
     .join("");
   const sections = (item.sections ?? []).map(renderSection).join("\n");
   const guidelines = item.guidelines ? renderGuidelines(item.guidelines) : "";
   const closing = item.closing_paragraph
-    ? `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:24px 0 0;">${esc(item.closing_paragraph)}</p>`
+    ? `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:24px 0 0;">${fmt(item.closing_paragraph)}</p>`
     : "";
+  const cta = item.cta ? renderCta(item.cta) : "";
   const sourceLine = renderSourceLine(item);
 
-  return `${sep}<div>${kicker}${title}${subtitle}${intro}${sections}${guidelines}${closing}${sourceLine}</div>`;
+  return `${sep}<div>${kicker}${title}${subtitle}${intro}${sections}${guidelines}${closing}${cta}${sourceLine}</div>`;
 }
 
 function renderSourceLine(item: NewsletterItemContent): string {
@@ -210,7 +227,7 @@ function renderSection(section: NewsletterSection): string {
   const paragraphs = (section.paragraphs ?? [])
     .map(
       (p) =>
-        `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:0 0 12px;">${esc(p)}</p>`,
+        `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:0 0 12px;">${fmt(p)}</p>`,
     )
     .join("");
 
@@ -221,7 +238,7 @@ function renderSection(section: NewsletterSection): string {
     .map((sub) => {
       const subBullets = sub.bullets && sub.bullets.length ? renderBullets(sub.bullets) : "";
       const subPara = sub.paragraph
-        ? `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:0 0 8px;">${esc(sub.paragraph)}</p>`
+        ? `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:0 0 8px;">${fmt(sub.paragraph)}</p>`
         : "";
       return `<div style="margin:14px 0 4px;">
         <p style="font-size:15px;line-height:1.5;color:${INK};font-weight:700;margin:0 0 6px;">${esc(sub.heading)}</p>
@@ -237,7 +254,7 @@ function renderBullets(items: string[]): string {
   const li = items
     .map(
       (b) =>
-        `<li style="font-size:15px;line-height:1.65;color:${BODY};margin:0 0 6px;">${esc(b)}</li>`,
+        `<li style="font-size:15px;line-height:1.65;color:${BODY};margin:0 0 6px;">${fmt(b)}</li>`,
     )
     .join("");
   return `<ul style="margin:0 0 14px 22px;padding:0;">${li}</ul>`;
@@ -245,12 +262,12 @@ function renderBullets(items: string[]): string {
 
 function renderGuidelines(g: NewsletterGuidelines): string {
   const intro = g.intro
-    ? `<p style="font-size:15px;line-height:1.65;color:${BODY};margin:0 0 12px;">${esc(g.intro)}</p>`
+    ? `<p style="font-size:15px;line-height:1.65;color:${BODY};margin:0 0 12px;">${fmt(g.intro)}</p>`
     : "";
   const items = g.items
     .map(
       (it) =>
-        `<li style="font-size:15px;line-height:1.65;color:${INK};margin:0 0 8px;padding-left:6px;list-style:none;position:relative;"><span style="color:${TEAL};font-weight:700;margin-right:8px;">✓</span>${esc(it)}</li>`,
+        `<li style="font-size:15px;line-height:1.65;color:${INK};margin:0 0 8px;padding-left:6px;list-style:none;position:relative;"><span style="color:${TEAL};font-weight:700;margin-right:8px;">✓</span>${fmt(it)}</li>`,
     )
     .join("");
   return `<div style="margin:28px 0 8px;padding:22px 24px;background:${HIGHLIGHT_BG};border-left:4px solid ${TEAL};border-radius:6px;">
@@ -267,4 +284,9 @@ function esc(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+// Escape and then convert **bold** markdown to <strong>.
+function fmt(s: string): string {
+  return esc(s).replace(/\*\*(.+?)\*\*/g, `<strong style="color:${INK};">$1</strong>`);
 }
