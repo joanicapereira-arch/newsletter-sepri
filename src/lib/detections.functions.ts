@@ -138,3 +138,57 @@ export const listScanRuns = createServerFn({ method: "GET" })
       .limit(50);
     return data ?? [];
   });
+
+/**
+ * Corrige URLs de deteções existentes: para cada deteção sem source_url ou
+ * com source_url igual à URL raiz da fonte, re-raspa a fonte, extrai os
+ * links da página, e faz match fuzzy título→link.
+ */
+export const backfillDetectionUrls = createServerFn({ method: "POST" })
+  .handler(async () => {
+    const admin = await getAdmin();
+    const { data: sources } = await admin
+      .from("sources")
+      .select("id,name,url")
+      .eq("active", true);
+    if (!sources?.length) return { updated: 0, checked: 0 };
+
+    const { data: dets } = await admin
+      .from("detections")
+      .select("id,title,source_id,source_url");
+    if (!dets?.length) return { updated: 0, checked: 0 };
+
+    const { firecrawlDeepScrape, resolveUrlForTitle } = await import("./firecrawl.server");
+
+    let updated = 0;
+    let checked = 0;
+    for (const src of sources) {
+      const rootNorm = src.url.replace(/\/$/, "");
+      const targets = dets.filter((d) => {
+        if (d.source_id !== src.id) return false;
+        const u = d.source_url?.trim() ?? "";
+        return !u || u === src.url || u.replace(/\/$/, "") === rootNorm;
+      });
+      if (!targets.length) continue;
+      let deep;
+      try {
+        deep = await firecrawlDeepScrape(src.url, { maxPages: 1, perPageChars: 2500 });
+      } catch (e) {
+        console.error("[backfill] scrape failed", src.name, e);
+        continue;
+      }
+      for (const d of targets) {
+        checked++;
+        const resolved = resolveUrlForTitle(d.title, deep.links, src.url);
+        if (resolved) {
+          const { error } = await admin
+            .from("detections")
+            .update({ source_url: resolved })
+            .eq("id", d.id);
+          if (!error) updated++;
+        }
+      }
+    }
+    return { updated, checked };
+  });
+
