@@ -8,7 +8,13 @@ async function getAdmin() {
 
 export const listDetections = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
-    z.object({ status: z.enum(["pending", "approved", "rejected", "all"]).default("pending") }).parse(d),
+    z
+      .object({
+        status: z
+          .enum(["pending", "informativo", "prioritario", "rejected", "all"])
+          .default("pending"),
+      })
+      .parse(d),
   )
   .handler(async ({ data }) => {
     const admin = await getAdmin();
@@ -22,27 +28,20 @@ export const listDetections = createServerFn({ method: "POST" })
     return rows ?? [];
   });
 
-export const approveDetection = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ detection_id: z.string().uuid() }).parse(d))
-  .handler(async ({ data }) => {
-    const admin = await getAdmin();
-    await admin
-      .from("detections")
-      .update({ status: "approved", decided_at: new Date().toISOString() })
-      .eq("id", data.detection_id);
-    return { ok: true };
-  });
-
-export const rejectDetection = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ detection_id: z.string().uuid() }).parse(d))
-  .handler(async ({ data }) => {
-    const admin = await getAdmin();
-    await admin
-      .from("detections")
-      .update({
-        status: "rejected",
-        decided_at: new Date().toISOString(),
+export const categorizeDetection = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        detection_id: z.string().uuid(),
+        category: z.enum(["informativo", "prioritario", "rejected"]),
       })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
+    await admin
+      .from("detections")
+      .update({ status: data.category, decided_at: new Date().toISOString() })
       .eq("id", data.detection_id);
     return { ok: true };
   });
