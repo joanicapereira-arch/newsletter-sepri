@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_app/inbox")({
 });
 
 type Status = "pending" | "informativo" | "prioritario" | "rejected";
-type Category = "informativo" | "prioritario" | "rejected";
+type Category = "pending" | "informativo" | "prioritario" | "rejected";
 
 function InboxPage() {
   const [status, setStatus] = useState<Status>("pending");
