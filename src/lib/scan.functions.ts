@@ -95,30 +95,44 @@ ${content}
 Extrai novidades relevantes dos últimos 90 dias, cada uma com a sua URL específica.`,
   });
 
+  const rootNorm = source.url.replace(/\/$/, "");
   const items = output.items
     .filter((i) => i.title && i.summary && i.relevance_score >= 40)
     .map((i) => {
-      // Nunca aceitar a URL raiz da fonte como source_url do item.
       const url = i.source_url?.trim();
       let normalized: string | null =
-        !url || url === source.url || url.replace(/\/$/, "") === source.url.replace(/\/$/, "")
-          ? null
-          : url;
-      // Fallback: tentar resolver via fuzzy match título→link do markdown raspado
+        !url || url === source.url || url.replace(/\/$/, "") === rootNorm ? null : url;
       if (!normalized) {
         normalized = resolveUrlForTitle(i.title, deep.links, source.url);
       }
       return { ...i, source_url: normalized };
     });
 
+  // Resolve redirects (e.g. Google News, feed proxies) → final destination URL.
+  await Promise.all(
+    items.map(async (item) => {
+      if (!item.source_url) return;
+      try {
+        const r = await fetch(item.source_url, {
+          method: "GET",
+          redirect: "follow",
+          signal: timeoutSignal(6000),
+        });
+        if (r.url && r.url !== item.source_url) {
+          item.source_url = r.url;
+        }
+      } catch {
+        /* keep original */
+      }
+    }),
+  );
 
-  // Fallback: para itens sem published_at, faz scrape rápido do source_url
-  // e pede à IA para extrair APENAS a data de publicação.
+  // Published date fallback
   await Promise.all(
     items.map(async (item) => {
       if (item.published_at) return;
       const url = item.source_url ?? source.url;
-      if (!url || url === source.url) return; // só vale a pena se for página específica
+      if (!url || url === source.url) return;
       try {
         const { firecrawlScrape } = await import("./firecrawl.server");
         const page = await firecrawlScrape(url, 150, 6000);
@@ -144,7 +158,19 @@ Extrai novidades relevantes dos últimos 90 dias, cada uma com a sua URL especí
   const { createHash } = await import("crypto");
   const admin = await getAdmin();
   let created = 0;
+  const dropped: string[] = [];
   for (const item of items) {
+    // Validação obrigatória: URL específico do artigo. Nunca guardamos
+    // deteções que apontem para a raiz da fonte (homepage/feed/listagem).
+    const finalUrl = item.source_url?.trim() ?? "";
+    const isRoot =
+      !finalUrl ||
+      finalUrl === source.url ||
+      finalUrl.replace(/\/$/, "") === rootNorm;
+    if (isRoot) {
+      dropped.push(item.title);
+      continue;
+    }
     const hash = createHash("sha256")
       .update(`${source.id}:${item.title.toLowerCase().trim()}`)
       .digest("hex")
@@ -155,7 +181,7 @@ Extrai novidades relevantes dos últimos 90 dias, cada uma com a sua URL especí
       source_name: source.name,
       title: item.title,
       summary: item.summary,
-      source_url: item.source_url,
+      source_url: finalUrl,
       content_hash: hash,
       relevance_score: item.relevance_score,
       published_at: item.published_at ?? null,
@@ -165,7 +191,13 @@ Extrai novidades relevantes dos últimos 90 dias, cada uma com a sua URL especí
       knownHashes.add(hash);
     }
   }
-  return { created, error: null };
+  return { created, dropped, error: null };
+}
+
+function timeoutSignal(ms: number) {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
 }
 
 async function sendAlertEmail(
