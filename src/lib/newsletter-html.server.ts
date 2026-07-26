@@ -171,10 +171,11 @@ function renderItemBody(item: NewsletterItemContent | undefined): string {
   const sections = (item.sections ?? []).map(renderSection).join("\n");
   const guidelines = item.guidelines ? renderGuidelines(item.guidelines) : "";
   const closing = item.closing_paragraph
-    ? `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:28px 0 0;">${esc(item.closing_paragraph)}</p>`
+    ? `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:28px 0 0;">${fmt(item.closing_paragraph)}</p>`
     : "";
+  const cta = item.cta ? renderCta(item.cta) : "";
   const sourceLine = renderSourceLine(item);
-  return `${sections}${guidelines}${closing}${sourceLine}`;
+  return `${sections}${guidelines}${closing}${cta}${sourceLine}`;
 }
 
 function renderCompositeItem(item: NewsletterItemContent, idx: number): string {
@@ -192,17 +193,18 @@ function renderCompositeItem(item: NewsletterItemContent, idx: number): string {
   const intro = (item.intro_paragraphs ?? [])
     .map(
       (p) =>
-        `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:0 0 14px;">${esc(p)}</p>`,
+        `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:0 0 14px;">${fmt(p)}</p>`,
     )
     .join("");
   const sections = (item.sections ?? []).map(renderSection).join("\n");
   const guidelines = item.guidelines ? renderGuidelines(item.guidelines) : "";
   const closing = item.closing_paragraph
-    ? `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:24px 0 0;">${esc(item.closing_paragraph)}</p>`
+    ? `<p style="font-size:15px;line-height:1.7;color:${BODY};margin:24px 0 0;">${fmt(item.closing_paragraph)}</p>`
     : "";
+  const cta = item.cta ? renderCta(item.cta) : "";
   const sourceLine = renderSourceLine(item);
 
-  return `${sep}<div>${kicker}${title}${subtitle}${intro}${sections}${guidelines}${closing}${sourceLine}</div>`;
+  return `${sep}<div>${kicker}${title}${subtitle}${intro}${sections}${guidelines}${closing}${cta}${sourceLine}</div>`;
 }
 
 function renderSourceLine(item: NewsletterItemContent): string {
