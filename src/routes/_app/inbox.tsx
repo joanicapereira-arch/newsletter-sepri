@@ -228,33 +228,47 @@ function InboxPage() {
                       : ""}
                     Detetada {new Date(d.detected_at).toLocaleString("pt-PT")}
                   </span>
-                  {d.status === "pending" && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => categorizeMut.mutate({ id: d.id, category: "rejected" })}
-                        disabled={pending}
-                      >
-                        <X className="w-4 h-4 mr-1" /> Rejeitar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => categorizeMut.mutate({ id: d.id, category: "informativo" })}
-                        disabled={pending}
-                      >
-                        <Info className="w-4 h-4 mr-1" /> Informativo
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => categorizeMut.mutate({ id: d.id, category: "prioritario" })}
-                        disabled={pending}
-                      >
-                        <Flame className="w-4 h-4 mr-1" /> Prioritário
-                      </Button>
-                    </>
+                  {d.status !== "informativo" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => categorizeMut.mutate({ id: d.id, category: "informativo" })}
+                      disabled={pending}
+                    >
+                      <Info className="w-4 h-4 mr-1" /> Informativo
+                    </Button>
                   )}
+                  {d.status !== "prioritario" && (
+                    <Button
+                      size="sm"
+                      variant={d.status === "pending" ? "default" : "outline"}
+                      onClick={() => categorizeMut.mutate({ id: d.id, category: "prioritario" })}
+                      disabled={pending}
+                    >
+                      <Flame className="w-4 h-4 mr-1" /> Prioritário
+                    </Button>
+                  )}
+                  {d.status !== "rejected" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => categorizeMut.mutate({ id: d.id, category: "rejected" })}
+                      disabled={pending}
+                    >
+                      <X className="w-4 h-4 mr-1" /> Rejeitar
+                    </Button>
+                  )}
+                  {d.status !== "pending" && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => categorizeMut.mutate({ id: d.id, category: "pending" })}
+                      disabled={pending}
+                    >
+                      <Undo2 className="w-4 h-4 mr-1" /> Voltar a Pendentes
+                    </Button>
+                  )}
+
                 </div>
               </CardContent>
             </Card>
