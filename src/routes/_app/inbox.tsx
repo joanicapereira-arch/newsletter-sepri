@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Info, Flame, X, ExternalLink, RefreshCw, Loader2, Sparkles } from "lucide-react";
+import { Info, Flame, X, ExternalLink, RefreshCw, Loader2, Sparkles, Undo2 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/inbox")({
   head: () => ({ meta: [{ title: "Caixa de entrada · SEPRI" }] }),
