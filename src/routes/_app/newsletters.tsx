@@ -53,10 +53,25 @@ function NewslettersPage() {
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold mb-1">Newsletters geradas</h1>
-      <p className="text-sm text-muted-foreground mb-6">
-        HTML pronto a copiar para Brevo. Cada item corresponde a uma deteção aprovada.
-      </p>
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold mb-1">Newsletters geradas</h1>
+          <p className="text-sm text-muted-foreground">
+            HTML pronto a copiar para Brevo. Cada item corresponde a uma deteção aprovada.
+          </p>
+        </div>
+        {data && data.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => regenerate.mutate()}
+            disabled={regenerate.isPending}
+          >
+            <RefreshCw className={`w-4 h-4 mr-1 ${regenerate.isPending ? "animate-spin" : ""}`} />
+            {regenerate.isPending ? "A regenerar…" : "Aplicar nova estrutura"}
+          </Button>
+        )}
+      </div>
 
       {isLoading && <p className="text-muted-foreground">A carregar…</p>}
       {data && data.length === 0 && (
