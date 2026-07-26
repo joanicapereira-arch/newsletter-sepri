@@ -6,6 +6,7 @@ import {
   listDetections,
   categorizeDetection,
   generateNewsletterFromSelection,
+  backfillDetectionUrls,
 } from "@/lib/detections.functions";
 import { triggerManualScan } from "@/lib/scan.functions";
 import { Button } from "@/components/ui/button";
