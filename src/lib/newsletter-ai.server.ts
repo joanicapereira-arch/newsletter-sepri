@@ -262,39 +262,23 @@ export async function generateCombinedNewsletterHtml(
   let enrichedItems: NewsletterItemContent[];
 
   try {
-    const CombinedSchema = z.object({
-      subject: z.string().describe("Assunto Brevo único, até 80 caracteres, que resume o conjunto"),
-      intro: z.object({
-        overtitle: z.string().optional(),
-        title: z.string(),
-        lead: z.string(),
-      }),
-      items: z.array(ItemContentSchema).min(1),
+    const LooseSchema = z.object({
+      subject: z.string().optional(),
+      intro: z.any().optional(),
+      items: z.array(z.any()).min(1),
     });
-    // Alguns modelos devolvem só o array de items na raiz — aceitamos ambos.
-    const TolerantSchema = z.union([
-      CombinedSchema,
-      z.array(ItemContentSchema).min(1).transform((arr) => ({
-        subject: items.length === 1 ? items[0].title.slice(0, 80) : "Atualizações SEPRI",
-        intro: {
-          title: items.length === 1 ? items[0].title : "Atualizações SEPRI",
-          lead: items[0].summary.slice(0, 220),
-        },
-        items: arr,
-      })),
-    ]);
     const { output } = await generateText({
       model: ai(MODEL),
-      output: Output.object({ schema: TolerantSchema as unknown as typeof CombinedSchema }),
+      output: Output.object({ schema: LooseSchema }),
       system: `${SYSTEM_BASE}
 
 Vais redigir UMA newsletter que agrega várias atualizações. Devolve SEMPRE um único objeto
-JSON com as chaves "subject", "intro" e "items" — nunca devolvas um array na raiz.
-Escreve um bloco de introdução comum (overtitle opcional, título H1 unificador e lead de 1-2
-frases) e depois um bloco completo para cada atualização, seguindo a mesma estrutura visual
-(overtitle, título, subtítulo opcional, intro, secções com emojis, orientações quando
-aplicável, fecho). Mantém a ordem original das atualizações. Usa sempre o texto completo do
-artigo fornecido para cada atualização, quando disponível.`,
+JSON com as chaves "subject", "intro" (objeto com overtitle opcional, title, lead) e "items"
+— nunca devolvas um array na raiz. Cada item segue o schema: overtitle, title, subtitle,
+intro_paragraphs (array de strings), sections (array com heading, icon, paragraphs, bullets),
+guidelines (heading, intro, items), closing_paragraph, cta (label, url).
+Mantém a ordem original das atualizações. Usa sempre o texto completo do artigo fornecido
+para cada atualização, quando disponível.`,
       prompt: `Atualizações a incluir (pela ordem):
 ${items
   .map(
@@ -310,10 +294,13 @@ Resumo curto: ${d.summary}${d.source_url ? `\nURL: ${d.source_url}` : ""}${
 Redige a newsletter agregada, desenvolvendo cada atualização com substância real.`,
     });
 
-    subject = output.subject;
-    intro = output.intro;
-    enrichedItems = output.items.map((it, idx) => ({
-      ...mapAiContent(it),
+    const normalized = output.items.map((raw) => normalizeLooseItem(raw));
+    if (normalized.every((it) => it.sections.length === 0)) throw new Error("conteúdo insuficiente");
+
+    subject = output.subject?.trim() || subject;
+    intro = normalizeLooseIntro(output.intro, items);
+    enrichedItems = normalized.map((it, idx) => ({
+      ...it,
       source_name: items[idx]?.source_name,
       source_url: items[idx]?.source_url ?? null,
       published_at: items[idx]?.published_at ?? null,
@@ -322,6 +309,7 @@ Redige a newsletter agregada, desenvolvendo cada atualização com substância r
       enrichedItems.push(fallbackItemContent(items[i], fullTexts[i]));
     }
   } catch (err) {
+
     console.error("[newsletter-ai] generateCombinedNewsletterHtml fallback:", err);
     enrichedItems = items.map((it, idx) => fallbackItemContent(it, fullTexts[idx]));
     intro = items.length > 1
