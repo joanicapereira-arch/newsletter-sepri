@@ -161,12 +161,14 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
         <div style="text-decoration:underline;">Av. Kim Il Sung, no. 1078, Maputo, Moçambique</div>
         <div style="text-decoration:underline;">Rua 6-1L, Bairro da Boavista, Luanda, Angola</div>
         <div style="margin-top:6px;">www.sepri.pt · comunicacao@sepri.pt</div>
-        <div style="margin:18px 0;">
-          ${renderSocialIcon("https://www.linkedin.com/company/sepri-group/", "linkedin", "LinkedIn")}
-          ${renderSocialIcon("https://www.instagram.com/sepri_group/", "instagram", "Instagram")}
-          ${renderSocialIcon("https://www.facebook.com/grupo.sepri", "facebook", "Facebook")}
-          ${renderSocialIcon("https://www.youtube.com/@seprigroup", "youtube", "YouTube")}
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px auto;">
+          <tr>
+            ${renderSocialIcon("https://www.linkedin.com/company/sepri-group/", "linkedin", "LinkedIn")}
+            ${renderSocialIcon("https://www.instagram.com/sepri_group/", "instagram", "Instagram")}
+            ${renderSocialIcon("https://www.facebook.com/grupo.sepri", "facebook", "Facebook")}
+            ${renderSocialIcon("https://www.youtube.com/@seprigroup", "youtube", "YouTube")}
+          </tr>
+        </table>
         <div>Este e-mail foi enviado para {{ contact.EMAIL }}.</div>
         <div style="font-size:11px;color:#8a93a0;margin-top:16px;">${chrome.disclaimerHtml}</div>
         <a href="{{ unsubscribe }}" style="display:inline-block;margin-top:10px;text-decoration:underline;color:#5a6472;font-size:12px;">Cancelar subscrição</a>
