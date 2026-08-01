@@ -47,10 +47,50 @@ function NewslettersPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const savedRangeRef = useRef<Range | null>(null);
 
+  const [tab, setTab] = useState<"active" | "trash">("active");
+
   const { data, isLoading } = useQuery({
-    queryKey: ["newsletters"],
-    queryFn: () => listNewsletters(),
+    queryKey: ["newsletters", tab],
+    queryFn: () => listNewsletters({ data: { trashed: tab === "trash" } }),
   });
+
+  async function refreshLists() {
+    await queryClient.invalidateQueries({ queryKey: ["newsletters"] });
+  }
+
+  async function handleTrash(id: string) {
+    try {
+      await trashNewsletter({ data: { id } });
+      if (openId === id) closeModal();
+      await refreshLists();
+      toast.success("Newsletter movida para o Lixo");
+    } catch {
+      toast.error("Não foi possível mover a newsletter para o Lixo.");
+    }
+  }
+
+  async function handleRestore(id: string) {
+    try {
+      await restoreNewsletter({ data: { id } });
+      await refreshLists();
+      toast.success("Newsletter restaurada");
+    } catch {
+      toast.error("Não foi possível restaurar a newsletter.");
+    }
+  }
+
+  async function handleDeleteForever(id: string) {
+    if (!window.confirm("Eliminar definitivamente esta newsletter? Esta ação não pode ser revertida.")) return;
+    try {
+      await deleteNewsletterPermanently({ data: { id } });
+      if (openId === id) closeModal();
+      await refreshLists();
+      toast.success("Newsletter eliminada definitivamente");
+    } catch {
+      toast.error("Não foi possível eliminar a newsletter.");
+    }
+  }
+
   const { data: full } = useQuery({
     queryKey: ["newsletter", openId],
     queryFn: () => getNewsletter({ data: { id: openId! } }),
