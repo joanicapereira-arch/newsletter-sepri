@@ -98,7 +98,7 @@ function NewslettersPage() {
           html2canvas: { scale: 2, useCORS: true },
           jsPDF: { unit: "pt", format: "a4", orientation: "portrait" },
           pagebreak: { mode: ["css", "avoid-all", "legacy"] },
-        } as Parameters<ReturnType<typeof html2pdf>["set"]>[0])
+        } as never)
 
         .from(body)
         .save();
