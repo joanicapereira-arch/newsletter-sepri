@@ -75,7 +75,7 @@ function NewslettersPage() {
     const doc = iframeRef.current?.contentDocument;
     const target =
       (doc?.querySelector("body > table td > table") as HTMLElement | null) ?? doc?.body ?? null;
-    if (!target) {
+    if (!doc || !target) {
       toast.error("Pré-visualização ainda não está pronta.");
       return;
     }
