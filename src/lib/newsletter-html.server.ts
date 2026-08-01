@@ -124,17 +124,17 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
           : `<div style="font-weight:900;font-size:20px;color:${NAVY};letter-spacing:1px;">sepri <span style="font-size:11px;color:${TURQ};font-weight:600;">Group</span></div>`}
       </td></tr>
 
-      <!-- HERO -->
-      <tr><td style="background:${NAVY};padding:28px 32px;">
+      <!-- HERO (fundo de ponta a ponta) -->
+      <tr><td style="background:${NAVY};padding:28px 0;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr>
+            <td width="32" style="width:32px;font-size:0;line-height:0;">&nbsp;</td>
             <td width="72" valign="middle" style="font-size:48px;line-height:1;color:#ffffff;">${esc(heroIcon)}</td>
             <td valign="middle">
-              ${heroTag
-                ? `<div style="display:inline-block;background:${TURQ};color:${NAVY};font-size:12px;font-weight:700;letter-spacing:0.5px;padding:4px 12px;border-radius:12px;margin-bottom:10px;text-transform:uppercase;">${esc(heroTag)}</div>`
-                : ""}
+              ${heroTag ? renderHeroTag(heroTag) : ""}
               <h1 style="color:#ffffff;font-size:24px;line-height:1.25;margin:0;font-weight:800;">${esc(heroTitle)}</h1>
             </td>
+            <td width="32" style="width:32px;font-size:0;line-height:0;">&nbsp;</td>
           </tr>
         </table>
       </td></tr>
@@ -143,9 +143,10 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
       ${renderIntroBlock(introParas)}
 
       <!-- BODY -->
-      <tr><td style="padding:32px 40px;background:#ffffff;color:${INK};font-size:14px;line-height:1.6;">
+      <tr><td style="padding:32px 56px;background:#ffffff;color:${INK};font-size:14px;line-height:1.6;">
         ${bodyBlock}
       </td></tr>
+
 
       <!-- DESTAQUE (recurso/imagem associado, ex: panfleto para descarregar) -->
       ${highlightRows}
