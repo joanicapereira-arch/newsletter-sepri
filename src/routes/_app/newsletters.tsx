@@ -87,6 +87,16 @@ function NewslettersPage() {
     patch.textContent = `html,body{background-color:#ffffff !important;color:#2b2b2b !important;}
 *,*::before,*::after{border-color:#d5dbe0 !important;outline-color:#d5dbe0 !important;text-decoration-color:currentColor !important;}`;
     document.head.appendChild(patch);
+    // html2canvas não desenha os marcadores nativos das listas (::marker),
+    // por isso injetamos bullets reais no HTML e removemo-los no fim.
+    const injected: HTMLElement[] = [];
+    doc.querySelectorAll("li").forEach((li) => {
+      const dot = doc.createElement("span");
+      dot.setAttribute("data-pdf-bullet", "1");
+      dot.textContent = "• ";
+      li.insertBefore(dot, li.firstChild);
+      injected.push(dot);
+    });
     try {
       const { default: html2pdf } = await import("html2pdf.js");
       await html2pdf()
@@ -100,8 +110,7 @@ function NewslettersPage() {
             useCORS: true,
             onclone: (clonedDoc: Document) => {
               const style = clonedDoc.createElement("style");
-              style.textContent =
-                "li{list-style:none !important;position:relative;padding-left:1.1em;} li:before{content:'\\2022';position:absolute;left:0;}";
+              style.textContent = "li{list-style:none !important;}";
               clonedDoc.head.appendChild(style);
             },
           },
@@ -117,8 +126,10 @@ function NewslettersPage() {
       console.error(err);
       toast.error("Não foi possível gerar o PDF.");
     } finally {
+      injected.forEach((el) => el.remove());
       patch.remove();
     }
+
 
   }
 
