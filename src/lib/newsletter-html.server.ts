@@ -1,3 +1,5 @@
+import { SOCIAL_ICON_DATA_URIS } from "./social-icons.data";
+
 // SEPRI newsletter renderer — matches the reference template exactly:
 // (1) centered logo, (2) navy hero with icon + turquoise tag + white H1,
 // (3) turquoise intro block with white bold lead + supporting text,
@@ -180,16 +182,16 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
 </html>`;
 }
 
-const SOCIAL_ICON_BASE = "https://sepri-legis-digest.lovable.app/social";
-
 function renderSocialIcon(href: string, slug: string, label: string): string {
+  const src = SOCIAL_ICON_DATA_URIS[slug] ?? "";
   return `<td width="28" height="28" align="center" valign="middle" style="width:28px;height:28px;border-radius:50%;background:${INK};text-align:center;vertical-align:middle;padding:0;">
     <a href="${esc(href)}" target="_blank" rel="noopener" style="display:block;line-height:0;text-decoration:none;">
-      <img src="${SOCIAL_ICON_BASE}/${slug}.png" width="14" height="14" alt="${esc(label)}" style="display:inline-block;vertical-align:middle;border:0;" />
+      <img src="${src}" width="14" height="14" alt="${esc(label)}" style="display:inline-block;vertical-align:middle;border:0;" />
     </a>
   </td>
   <td width="8" style="width:8px;font-size:0;line-height:0;">&nbsp;</td>`;
 }
+
 
 function renderIntroBlock(paragraphs: string[]): string {
   if (!paragraphs.length) return "";
@@ -216,10 +218,15 @@ function renderHighlightBlock(resource: NewsletterResource): string {
 
 function renderCta(cta: NewsletterCta): string {
   const href = cta.url ?? "https://www.sepri.pt/contactos";
-  return `<tr><td style="text-align:center;padding:8px 40px 32px;background:#ffffff;">
-    <a href="${esc(href)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:14px 28px;border-radius:24px;">${esc(cta.label)}</a>
+  return `<tr><td style="padding:8px 40px 32px;background:#ffffff;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+      <tr><td align="center" valign="middle" style="text-align:center;vertical-align:middle;background:${NAVY};border-radius:24px;padding:14px 28px;">
+        <a href="${esc(href)}" style="display:inline-block;color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;line-height:1.2;">${esc(cta.label)}</a>
+      </td></tr>
+    </table>
   </td></tr>`;
 }
+
 
 function renderItemBody(item: NewsletterItemContent | undefined): string {
   if (!item) return "";
