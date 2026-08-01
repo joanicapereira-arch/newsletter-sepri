@@ -52,12 +52,11 @@ function NewslettersPage() {
       const byteNumbers = new Array(byteChars.length);
       for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
       const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], {
-        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      });
+      const blob = new Blob([byteArray], { type: "application/msword" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `${subject.replace(/[^a-z0-9]+/gi, "-").slice(0, 60)}.docx`;
+      a.download = `${subject.replace(/[^a-z0-9]+/gi, "-").slice(0, 60)}.doc`;
+
       a.click();
     } catch (err) {
       console.error(err);
