@@ -49,6 +49,76 @@ export const categorizeDetection = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const addManualDetection = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        source_id: z.string().uuid(),
+        url: z.string().trim().url().max(2000),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
+    const { data: source, error: srcErr } = await admin
+      .from("sources")
+      .select("id,name,url,keywords")
+      .eq("id", data.source_id)
+      .single();
+    if (srcErr || !source) {
+      console.error("[addManualDetection] source error", srcErr);
+      throw new Error("Fonte inválida.");
+    }
+
+    const { data: existing } = await admin
+      .from("detections")
+      .select("id")
+      .eq("source_url", data.url)
+      .limit(1);
+    if (existing && existing.length > 0) {
+      throw new Error("Essa notícia já existe na caixa de entrada.");
+    }
+
+    const { extractArticleFromUrl } = await import("./manual-detection.server");
+    const article = await extractArticleFromUrl(data.url, {
+      name: source.name,
+      keywords: source.keywords ?? [],
+    });
+
+    const { createHash } = await import("crypto");
+    const hash = createHash("sha256")
+      .update(`${source.id}:${article.title.toLowerCase().trim()}`)
+      .digest("hex")
+      .slice(0, 32);
+
+    const { data: dup } = await admin
+      .from("detections")
+      .select("id")
+      .eq("content_hash", hash)
+      .limit(1);
+    if (dup && dup.length > 0) {
+      throw new Error("Essa notícia já existe na caixa de entrada.");
+    }
+
+    const { error } = await admin.from("detections").insert({
+      source_id: source.id,
+      source_name: source.name,
+      title: article.title,
+      summary: article.summary,
+      source_url: data.url,
+      content_hash: hash,
+      relevance_score: article.relevance_score,
+      published_at: article.published_at,
+      status: "pending",
+    });
+    if (error) {
+      console.error("[addManualDetection] insert error", error);
+      throw new Error("Não foi possível adicionar a notícia.");
+    }
+    return { ok: true, title: article.title };
+  });
+
+
 export const generateNewsletterFromSelection = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z.object({ detection_ids: z.array(z.string().uuid()).min(1).max(20) }).parse(d),

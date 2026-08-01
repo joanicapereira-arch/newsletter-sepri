@@ -6,12 +6,23 @@ import {
   listDetections,
   categorizeDetection,
   generateNewsletterFromSelection,
+  addManualDetection,
 } from "@/lib/detections.functions";
+import { listSources } from "@/lib/sources.functions";
 import { triggerManualScan } from "@/lib/scan.functions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Info,
@@ -22,6 +33,7 @@ import {
   Loader2,
   Sparkles,
   Undo2,
+  Plus,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/inbox")({
@@ -29,13 +41,20 @@ export const Route = createFileRoute("/_app/inbox")({
   component: InboxPage,
 });
 
+
 type Status = "pending" | "informativo" | "prioritario" | "rejected";
 type Category = "pending" | "informativo" | "prioritario" | "rejected";
 
 function InboxPage() {
   const [status, setStatus] = useState<Status>("pending");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showManual, setShowManual] = useState(false);
+  const [manualSourceId, setManualSourceId] = useState("");
+  const [manualUrl, setManualUrl] = useState("");
   const qc = useQueryClient();
+
+  const { data: sources } = useQuery({ queryKey: ["sources"], queryFn: () => listSources() });
+
 
   const { data: detections, isLoading } = useQuery({
     queryKey: ["detections", status],
@@ -102,6 +121,21 @@ function InboxPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const manualMut = useMutation({
+    mutationFn: () =>
+      addManualDetection({ data: { source_id: manualSourceId, url: manualUrl.trim() } }),
+    onSuccess: (r) => {
+      toast.success(`Notícia adicionada aos Pendentes: ${r.title}`);
+      setManualUrl("");
+      setShowManual(false);
+      setStatus("pending");
+      qc.invalidateQueries({ queryKey: ["detections"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
+
   return (
     <div className="p-8 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
@@ -113,6 +147,10 @@ function InboxPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setShowManual((v) => !v)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Adicionar notícia
+          </Button>
           <Button onClick={() => scanMut.mutate()} disabled={scanMut.isPending}>
             {scanMut.isPending ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -123,6 +161,62 @@ function InboxPage() {
           </Button>
         </div>
       </div>
+
+      {showManual && (
+        <Card className="mb-4">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Adicionar notícia manualmente</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Indica a fonte e o URL da notícia. O título, resumo, data e relevância são
+              preenchidos automaticamente e a notícia entra em <strong>Pendentes</strong>.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid gap-3 md:grid-cols-[240px_1fr]">
+              <div className="space-y-1.5">
+                <Label>Fonte</Label>
+                <Select value={manualSourceId} onValueChange={setManualSourceId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Escolher fonte" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(sources ?? []).map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>URL da notícia</Label>
+                <Input
+                  value={manualUrl}
+                  onChange={(e) => setManualUrl(e.target.value)}
+                  placeholder="https://…"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => manualMut.mutate()}
+                disabled={!manualSourceId || !manualUrl.trim() || manualMut.isPending}
+              >
+                {manualMut.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4 mr-2" />
+                )}
+                Adicionar
+              </Button>
+              <Button variant="ghost" onClick={() => setShowManual(false)}>
+                Cancelar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
 
       <Tabs
         value={status}
