@@ -194,15 +194,25 @@ function renderSocialIcon(href: string, slug: string, label: string): string {
 }
 
 
+function renderHeroTag(tag: string): string {
+  // Tabela com altura/padding fixos: o html2canvas desenha o border-radius
+  // corretamente em células com dimensões explícitas (inline-block automático
+  // produzia "pontas" no PDF).
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 10px;">
+    <tr><td height="24" align="center" valign="middle" style="height:24px;line-height:24px;background:${TURQ};color:${NAVY};font-size:12px;font-weight:700;letter-spacing:0.5px;padding:0 14px;border-radius:12px;text-align:center;vertical-align:middle;text-transform:uppercase;white-space:nowrap;">${esc(tag)}</td></tr>
+  </table>`;
+}
+
 function renderIntroBlock(paragraphs: string[]): string {
   if (!paragraphs.length) return "";
   const [first, ...rest] = paragraphs;
   const firstHtml = `<strong style="display:block;font-size:15px;margin-bottom:10px;">${esc(first)}</strong>`;
   const restHtml = rest.map((p) => esc(p)).join(" ");
-  return `<tr><td style="background:${TURQ};color:#ffffff;text-align:center;padding:28px 40px;font-size:14px;line-height:1.7;">
-    ${firstHtml}${restHtml}
+  return `<tr><td style="background:${TURQ};color:#ffffff;text-align:center;padding:28px 0;font-size:14px;line-height:1.7;">
+    <div style="padding:0 40px;">${firstHtml}${restHtml}</div>
   </td></tr>`;
 }
+
 
 function renderHighlightBlock(resource: NewsletterResource): string {
   const img = resource.imageUrl
