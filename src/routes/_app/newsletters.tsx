@@ -91,13 +91,15 @@ function NewslettersPage() {
       const { default: html2pdf } = await import("html2pdf.js");
       await html2pdf()
         .set({
+          // html2pdf/jsPDF margin order: [top, left, bottom, right] (pt)
           margin: [24, 0, 24, 0],
           filename: `${safeName(subject)}.pdf`,
           image: { type: "jpeg", quality: 0.98 },
           html2canvas: { scale: 2, useCORS: true },
           jsPDF: { unit: "pt", format: "a4", orientation: "portrait" },
           pagebreak: { mode: ["css", "avoid-all", "legacy"] },
-        })
+        } as Parameters<ReturnType<typeof html2pdf>["set"]>[0])
+
         .from(body)
         .save();
 
