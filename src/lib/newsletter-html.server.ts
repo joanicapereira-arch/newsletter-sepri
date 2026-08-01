@@ -218,10 +218,15 @@ function renderHighlightBlock(resource: NewsletterResource): string {
 
 function renderCta(cta: NewsletterCta): string {
   const href = cta.url ?? "https://www.sepri.pt/contactos";
-  return `<tr><td style="text-align:center;padding:8px 40px 32px;background:#ffffff;">
-    <a href="${esc(href)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:14px 28px;border-radius:24px;">${esc(cta.label)}</a>
+  return `<tr><td style="padding:8px 40px 32px;background:#ffffff;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+      <tr><td align="center" valign="middle" style="text-align:center;vertical-align:middle;background:${NAVY};border-radius:24px;padding:14px 28px;">
+        <a href="${esc(href)}" style="display:inline-block;color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;line-height:1.2;">${esc(cta.label)}</a>
+      </td></tr>
+    </table>
   </td></tr>`;
 }
+
 
 function renderItemBody(item: NewsletterItemContent | undefined): string {
   if (!item) return "";
