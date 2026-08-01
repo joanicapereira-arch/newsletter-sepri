@@ -329,7 +329,7 @@ function NewslettersPage() {
                   </Button>
                 </div>
                 <div className="px-4 py-2 text-xs font-medium bg-primary/10 text-primary border-b">
-                  Modo de edição — seleciona o texto e usa a barra acima. Clica numa imagem para a redimensionar.
+                  Modo de edição — seleciona o texto e usa a barra acima. Para trocar uma imagem, seleciona-a e clica em “Imagem”.
                 </div>
               </>
             )}
