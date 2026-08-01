@@ -239,11 +239,32 @@ function NewslettersPage() {
         </div>
       </div>
 
+      <div className="flex gap-2 mb-5 border-b">
+        {([
+          { key: "active", label: "Newsletters" },
+          { key: "trash", label: "Lixo" },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
+              tab === t.key
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       {isLoading && <p className="text-muted-foreground">A carregar…</p>}
       {data && data.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            Ainda nenhuma newsletter gerada. Aprova uma deteção na caixa de entrada.
+            {tab === "trash"
+              ? "O Lixo está vazio."
+              : "Ainda nenhuma newsletter gerada. Aprova uma deteção na caixa de entrada."}
           </CardContent>
         </Card>
       )}
@@ -265,11 +286,26 @@ function NewslettersPage() {
                   <Button size="sm" variant="outline" onClick={() => setOpenId(n.id)}>
                     <Eye className="w-4 h-4 mr-1" /> Pré-visualizar
                   </Button>
+                  {tab === "active" ? (
+                    <Button size="sm" variant="outline" onClick={() => handleTrash(n.id)}>
+                      <Trash2 className="w-4 h-4 mr-1" /> Eliminar
+                    </Button>
+                  ) : (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => handleRestore(n.id)}>
+                        <RotateCcw className="w-4 h-4 mr-1" /> Restaurar
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => handleDeleteForever(n.id)}>
+                        <Trash2 className="w-4 h-4 mr-1" /> Eliminar definitivamente
+                      </Button>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
           );
         })}
+
       </div>
 
       {openId && full && (
