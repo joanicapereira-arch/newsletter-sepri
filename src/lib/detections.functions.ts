@@ -160,9 +160,17 @@ export const uploadNewsletterImage = createServerFn({ method: "POST" })
       console.error("[uploadNewsletterImage] storage error", error);
       throw new Error("Não foi possível enviar a imagem.");
     }
-    const { data: pub } = admin.storage.from("newsletter-images").getPublicUrl(path);
-    return { url: pub.publicUrl };
+    const TEN_YEARS = 60 * 60 * 24 * 365 * 10;
+    const { data: signed, error: signErr } = await admin.storage
+      .from("newsletter-images")
+      .createSignedUrl(path, TEN_YEARS);
+    if (signErr || !signed?.signedUrl) {
+      console.error("[uploadNewsletterImage] sign error", signErr);
+      throw new Error("Não foi possível preparar a imagem.");
+    }
+    return { url: signed.signedUrl };
   });
+
 
 
 
