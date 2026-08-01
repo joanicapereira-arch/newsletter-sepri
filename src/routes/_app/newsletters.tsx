@@ -126,10 +126,9 @@ function NewslettersPage() {
       const pageH = pdf.internal.pageSize.getHeight();
       const margin = 24;
       const maxW = pageW - margin * 2;
-      const imgW = Math.min(maxW, (canvas.width * 72) / 96 / 2 || maxW);
-      // Centragem explícita: jsPDF alinha à esquerda por omissão.
+      // Ocupa toda a largura útil e fica centrado por construção.
+      const imgW = maxW;
       const offsetX = (pageW - imgW) / 2;
-      const imgH = (canvas.height * imgW) / canvas.width;
       const usableH = pageH - margin * 2;
 
       const pageCanvas = document.createElement("canvas");
@@ -157,7 +156,6 @@ function NewslettersPage() {
         page += 1;
       }
       pdf.save(`${safeName(subject)}.pdf`);
-      void imgH;
     } catch (err) {
       console.error(err);
       toast.error("Não foi possível gerar o PDF.");
