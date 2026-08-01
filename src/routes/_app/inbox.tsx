@@ -6,7 +6,6 @@ import {
   listDetections,
   categorizeDetection,
   generateNewsletterFromSelection,
-  updateDetectionUrl,
 } from "@/lib/detections.functions";
 import { triggerManualScan } from "@/lib/scan.functions";
 import { Button } from "@/components/ui/button";
@@ -14,7 +13,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
 import {
   Info,
   Flame,
@@ -24,8 +22,6 @@ import {
   Loader2,
   Sparkles,
   Undo2,
-  Pencil,
-  Check,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/inbox")({

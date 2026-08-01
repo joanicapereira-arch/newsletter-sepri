@@ -72,14 +72,19 @@ const NAVY = "#1a3a63";
 const TURQ = "#7ec8d8";
 const INK = "#2b2b2b";
 const MUTED = "#4a4a4a";
+const LIGHT_BG = "#eef1f4";
 const BORDER = "#d5dbe0";
 const PAGE_BG = "#e5e9ed";
 
 export function renderNewsletterHtml(doc: NewsletterDocument, chrome: NewsletterChrome): string {
   const isComposite = !!doc.composite_intro;
 
-  const heroTag = isComposite ? doc.composite_intro?.overtitle : doc.items[0]?.overtitle;
-  const heroTitle = isComposite ? doc.composite_intro?.title ?? "" : doc.items[0]?.title ?? "";
+  const heroTag = isComposite
+    ? doc.composite_intro?.overtitle
+    : doc.items[0]?.overtitle;
+  const heroTitle = isComposite
+    ? doc.composite_intro?.title ?? ""
+    : doc.items[0]?.title ?? "";
   const heroIcon = pickHeroIcon(heroTag, heroTitle);
 
   const introParas = isComposite
@@ -99,76 +104,76 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
     .map(renderHighlightBlock)
     .join("\n");
 
-  const logoHtml = chrome.logoUrl
-    ? `<img src="${chrome.logoUrl}" alt="SEPRI Group" style="max-height:52px;display:block;margin:0 auto;" />`
-    : `<div style="font-family:Arial,sans-serif;font-size:22px;font-weight:700;color:${NAVY};letter-spacing:1px;">sepri <span style="font-weight:400;">Group</span></div>`;
-
-  return `<!DOCTYPE html>
+  return `<!doctype html>
 <html lang="pt">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(doc.subject)}</title>
 </head>
-<body style="margin:0;padding:0;background:${PAGE_BG};font-family:Arial,Helvetica,sans-serif;color:${INK};">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAGE_BG};padding:24px 0;">
-    <tr><td align="center">
-      <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="width:640px;max-width:640px;background:#ffffff;border:1px solid ${BORDER};border-radius:6px;overflow:hidden;">
-        <!-- Logo -->
-        <tr><td align="center" style="padding:28px 24px 20px;background:#ffffff;">
-          ${logoHtml}
-        </td></tr>
+<body style="margin:0;padding:40px 0;background:${PAGE_BG};font-family:Arial,Helvetica,sans-serif;color:${INK};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAGE_BG};">
+  <tr><td align="center">
+    <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;">
+      <!-- LOGO -->
+      <tr><td style="padding:32px 20px 24px;text-align:center;background:#ffffff;">
+        ${chrome.logoUrl
+          ? `<img src="${esc(chrome.logoUrl)}" alt="SEPRI Group" style="height:42px;display:inline-block;" />`
+          : `<div style="font-weight:900;font-size:20px;color:${NAVY};letter-spacing:1px;">sepri <span style="font-size:11px;color:${TURQ};font-weight:600;">Group</span></div>`}
+      </td></tr>
 
-        <!-- Hero -->
-        <tr><td style="background:${NAVY};padding:36px 32px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="width:64px;vertical-align:top;font-size:40px;line-height:1;">${esc(heroIcon)}</td>
-              <td style="vertical-align:top;">
-                ${
-                  heroTag
-                    ? `<div style="display:inline-block;background:${TURQ};color:${NAVY};font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;padding:4px 10px;border-radius:3px;margin-bottom:12px;">${esc(heroTag)}</div>`
-                    : ""
-                }
-                <h1 style="margin:0;color:#ffffff;font-size:26px;line-height:1.25;font-weight:700;">${esc(heroTitle)}</h1>
-              </td>
-            </tr>
-          </table>
-        </td></tr>
+      <!-- HERO -->
+      <tr><td style="background:${NAVY};padding:28px 32px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td width="72" valign="middle" style="font-size:48px;line-height:1;color:#ffffff;">${esc(heroIcon)}</td>
+            <td valign="middle">
+              ${heroTag
+                ? `<div style="display:inline-block;background:${TURQ};color:${NAVY};font-size:12px;font-weight:700;letter-spacing:0.5px;padding:4px 12px;border-radius:12px;margin-bottom:10px;text-transform:uppercase;">${esc(heroTag)}</div>`
+                : ""}
+              <h1 style="color:#ffffff;font-size:24px;line-height:1.25;margin:0;font-weight:800;">${esc(heroTitle)}</h1>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
 
-        <!-- Intro (turquoise) -->
-        ${renderIntroBlock(introParas)}
+      <!-- INTRO -->
+      ${renderIntroBlock(introParas)}
 
-        <!-- Body -->
-        <tr><td style="padding:32px;background:#ffffff;color:${INK};font-size:15px;line-height:1.6;">
-          ${bodyBlock}
-        </td></tr>
+      <!-- BODY -->
+      <tr><td style="padding:32px 40px;background:#ffffff;color:${INK};font-size:14px;line-height:1.6;">
+        ${bodyBlock}
+      </td></tr>
 
-        ${highlightRows}
+      <!-- DESTAQUE (recurso/imagem associado, ex: panfleto para descarregar) -->
+      ${highlightRows}
 
-        ${finalCta ? `<tr><td align="center" style="padding:8px 32px 36px;background:#ffffff;">${renderCta(finalCta)}</td></tr>` : ""}
+      <!-- CTA -->
+      ${finalCta ? renderCta(finalCta) : ""}
 
-        <!-- Footer -->
-        <tr><td style="background:${NAVY};color:#ffffff;padding:28px 32px;font-size:12px;line-height:1.6;">
-          <div style="font-weight:700;margin-bottom:6px;">SEPRI - Medicina no Trabalho Lda</div>
-          <div>Avenida da Igreja nº42, 1 Dto, 1700-239 Lisboa</div>
-          <div>Rua Dr Loureiro Amorim nº183, 4710-487 Braga</div>
-          <div>Av. Kim Il Sung, no. 1078, Maputo, Moçambique</div>
-          <div>Rua 6-1L, Bairro da Boavista, Luanda, Angola</div>
-          <div style="margin-top:10px;">www.sepri.pt · comunicacao@sepri.pt</div>
-          <div style="margin-top:14px;">
-            <a href="https://www.linkedin.com/company/sepri" style="display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;background:#ffffff;color:${NAVY};font-weight:700;border-radius:50%;text-decoration:none;font-size:11px;margin-right:6px;">in</a>
-            <a href="https://www.instagram.com/sepri" style="display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;background:#ffffff;color:${NAVY};font-weight:700;border-radius:50%;text-decoration:none;font-size:11px;margin-right:6px;">ig</a>
-            <a href="https://www.facebook.com/sepri" style="display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;background:#ffffff;color:${NAVY};font-weight:700;border-radius:50%;text-decoration:none;font-size:11px;margin-right:6px;">fb</a>
-            <a href="https://www.youtube.com/@sepri" style="display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;background:#ffffff;color:${NAVY};font-weight:700;border-radius:50%;text-decoration:none;font-size:11px;">yt</a>
-          </div>
-          <div style="margin-top:16px;font-size:11px;color:#c7d3e0;">Este e-mail foi enviado para {{ contact.EMAIL }}.</div>
-          <div style="margin-top:6px;font-size:11px;color:#c7d3e0;">${chrome.disclaimerHtml}</div>
-          <div style="margin-top:10px;"><a href="{{ unsubscribe }}" style="color:#ffffff;text-decoration:underline;font-size:11px;">Cancelar subscrição</a></div>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
+      <tr><td><hr style="border:none;border-top:1px solid ${BORDER};margin:0 40px;" /></td></tr>
+
+      <!-- FOOTER -->
+      <tr><td style="background:${LIGHT_BG};padding:32px 40px 24px;text-align:center;font-size:12px;color:#5a6472;line-height:1.8;">
+        <strong style="display:block;font-size:13px;color:${INK};margin-bottom:12px;">SEPRI - Medicina no Trabalho Lda</strong>
+        <div style="text-decoration:underline;">Avenida da Igreja nº42, 1 Dto, 1700-239 Lisboa</div>
+        <div style="text-decoration:underline;">Rua Dr Loureiro Amorim nº183, 4710-487 Braga</div>
+        <div style="text-decoration:underline;">Av. Kim Il Sung, no. 1078, Maputo, Moçambique</div>
+        <div style="text-decoration:underline;">Rua 6-1L, Bairro da Boavista, Luanda, Angola</div>
+        <div style="margin-top:6px;">www.sepri.pt · comunicacao@sepri.pt</div>
+        <div style="margin:18px 0;">
+          <span style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;background:${INK};color:#fff;margin:0 4px;font-size:11px;font-weight:bold;">in</span>
+          <span style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;background:${INK};color:#fff;margin:0 4px;font-size:11px;font-weight:bold;">ig</span>
+          <span style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;background:${INK};color:#fff;margin:0 4px;font-size:11px;font-weight:bold;">fb</span>
+          <span style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;background:${INK};color:#fff;margin:0 4px;font-size:11px;font-weight:bold;">yt</span>
+        </div>
+        <div>Este e-mail foi enviado para {{ contact.EMAIL }}.</div>
+        <div style="font-size:11px;color:#8a93a0;margin-top:16px;">${chrome.disclaimerHtml}</div>
+        <a href="{{ unsubscribe }}" style="display:inline-block;margin-top:10px;text-decoration:underline;color:#5a6472;font-size:12px;">Cancelar subscrição</a>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
 </body>
 </html>`;
 }
@@ -176,27 +181,31 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
 function renderIntroBlock(paragraphs: string[]): string {
   if (!paragraphs.length) return "";
   const [first, ...rest] = paragraphs;
-  const firstHtml = `<span style="color:#ffffff;font-weight:700;">${esc(first)}</span>`;
-  const restHtml = rest.map((p) => ` <span style="color:#ffffff;">${esc(p)}</span>`).join("");
-  return `<tr><td style="background:${TURQ};color:#ffffff;padding:22px 32px;font-size:15px;line-height:1.55;">
+  const firstHtml = `<strong style="display:block;font-size:15px;margin-bottom:10px;">${esc(first)}</strong>`;
+  const restHtml = rest.map((p) => esc(p)).join(" ");
+  return `<tr><td style="background:${TURQ};color:#ffffff;text-align:center;padding:28px 40px;font-size:14px;line-height:1.7;">
     ${firstHtml}${restHtml}
   </td></tr>`;
 }
 
 function renderHighlightBlock(resource: NewsletterResource): string {
   const img = resource.imageUrl
-    ? `<img src="${resource.imageUrl}" alt="${esc(resource.heading)}" style="max-width:100%;display:block;border:0;" />`
-    : "";
-  const media = resource.linkUrl ? `<a href="${resource.linkUrl}" style="text-decoration:none;">${img}</a>` : img;
-  return `<tr><td style="padding:0 32px 24px;background:#ffffff;">
-    <p style="margin:0 0 8px;font-weight:700;color:${NAVY};font-size:14px;">${esc(resource.heading)}</p>
+    ? `<img src="${esc(resource.imageUrl)}" alt="${esc(resource.heading)}" style="display:block;max-width:220px;width:100%;height:auto;margin:0 auto;border-radius:6px;" />`
+    : `<div style="background:${BORDER};height:120px;width:220px;margin:0 auto;border-radius:6px;"></div>`;
+  const media = resource.linkUrl
+    ? `<a href="${esc(resource.linkUrl)}" style="text-decoration:none;">${img}</a>`
+    : img;
+  return `<tr><td style="background:${LIGHT_BG};padding:28px 40px;text-align:center;">
+    <h3 style="font-size:15px;margin:0 0 12px;color:${INK};">${esc(resource.heading)}</h3>
     ${media}
   </td></tr>`;
 }
 
 function renderCta(cta: NewsletterCta): string {
   const href = cta.url ?? "https://www.sepri.pt/contactos";
-  return `<a href="${href}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:14px 28px;border-radius:28px;">${esc(cta.label)}</a>`;
+  return `<tr><td style="text-align:center;padding:8px 40px 32px;background:#ffffff;">
+    <a href="${esc(href)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:14px 28px;border-radius:24px;">${esc(cta.label)}</a>
+  </td></tr>`;
 }
 
 function renderItemBody(item: NewsletterItemContent | undefined): string {
@@ -204,7 +213,7 @@ function renderItemBody(item: NewsletterItemContent | undefined): string {
   const sections = (item.sections ?? []).map(renderSection).join("\n");
   const guidelines = item.guidelines ? renderGuidelines(item.guidelines) : "";
   const closing = item.closing_paragraph
-    ? `<p style="margin:16px 0 0;color:${INK};font-size:15px;line-height:1.6;">${fmt(item.closing_paragraph)}</p>`
+    ? `<p style="font-size:14px;line-height:1.6;color:${INK};margin:20px 0 0;">${fmt(item.closing_paragraph)}</p>`
     : "";
   const sourceLine = renderSourceLine(item);
   return `${sections}${guidelines}${closing}${sourceLine}`;
@@ -213,31 +222,32 @@ function renderItemBody(item: NewsletterItemContent | undefined): string {
 function renderCompositeItem(item: NewsletterItemContent): string {
   const heading = renderSectionHeading({ icon: item.overtitle ? "📌" : "🗂", heading: item.title });
   const intro = (item.intro_paragraphs ?? [])
-    .map((p) => `<p style="margin:0 0 12px;color:${INK};font-size:15px;line-height:1.6;">${fmt(p)}</p>`)
+    .map((p) => `<p style="font-size:14px;line-height:1.6;color:${MUTED};margin:0 0 12px;">${fmt(p)}</p>`)
     .join("");
   const sections = (item.sections ?? []).map(renderSection).join("\n");
   const guidelines = item.guidelines ? renderGuidelines(item.guidelines) : "";
   const closing = item.closing_paragraph
-    ? `<p style="margin:16px 0 0;color:${INK};font-size:15px;line-height:1.6;">${fmt(item.closing_paragraph)}</p>`
+    ? `<p style="font-size:14px;line-height:1.6;color:${INK};margin:16px 0 0;">${fmt(item.closing_paragraph)}</p>`
     : "";
   const src = renderSourceLine(item);
-  return `<div style="margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid ${BORDER};">${heading}${intro}${sections}${guidelines}${closing}${src}</div>`;
+  return `${heading}${intro}${sections}${guidelines}${closing}${src}`;
 }
 
 function renderSection(section: NewsletterSection): string {
   const heading = renderSectionHeading(section);
   const paragraphs = (section.paragraphs ?? [])
-    .map((p) => `<p style="margin:0 0 12px;color:${INK};font-size:15px;line-height:1.6;">${fmt(p)}</p>`)
+    .map((p) => `<p style="font-size:14px;line-height:1.6;color:${INK};margin:0 0 12px;">${fmt(p)}</p>`)
     .join("");
-  const bullets = section.bullets && section.bullets.length ? renderBullets(section.bullets) : "";
+  const bullets =
+    section.bullets && section.bullets.length ? renderBullets(section.bullets) : "";
   const subs = (section.subsections ?? [])
     .map((sub) => {
       const subBullets = sub.bullets && sub.bullets.length ? renderBullets(sub.bullets) : "";
       const subPara = sub.paragraph
-        ? `<p style="margin:0 0 8px;color:${INK};font-size:15px;line-height:1.6;">${fmt(sub.paragraph)}</p>`
+        ? `<p style="margin:0 0 8px;color:${MUTED};font-size:14px;line-height:1.6;">${fmt(sub.paragraph)}</p>`
         : "";
-      return `<div style="margin:8px 0 12px;">
-        <p style="margin:0 0 6px;font-weight:700;color:${NAVY};font-size:14px;">${esc(sub.heading)}</p>
+      return `<div style="margin:10px 0;">
+        <p style="font-weight:bold;margin:0 0 2px;color:${INK};font-size:14px;">${esc(sub.heading)}</p>
         ${subPara}${subBullets}
       </div>`;
     })
@@ -247,26 +257,28 @@ function renderSection(section: NewsletterSection): string {
 
 function renderSectionHeading(section: { icon?: string; heading: string }): string {
   const icon = section.icon ? `${section.icon} ` : "";
-  return `<h2 style="margin:20px 0 12px;color:${NAVY};font-size:18px;font-weight:700;line-height:1.3;">${esc(icon)}${esc(section.heading)}</h2>`;
+  return `<h2 style="font-size:16px;margin:28px 0 10px;color:${INK};font-weight:bold;">${esc(icon)}${esc(section.heading)}</h2>`;
 }
 
 function renderBullets(items: string[]): string {
   const li = items
-    .map((b) => `<li style="margin:0 0 6px;color:${INK};font-size:15px;line-height:1.55;">${fmt(b)}</li>`)
+    .map(
+      (b) => `<li style="margin:0 0 6px;color:${INK};"><span style="font-weight:bold;">${fmt(b)}</span></li>`,
+    )
     .join("");
-  return `<ul style="margin:0 0 14px;padding-left:20px;">${li}</ul>`;
+  return `<ul style="margin:8px 0 16px;padding-left:20px;font-size:14px;line-height:1.6;">${li}</ul>`;
 }
 
 function renderGuidelines(g: NewsletterGuidelines): string {
   const intro = g.intro
-    ? `<p style="margin:0 0 10px;color:${INK};font-size:15px;line-height:1.6;">${fmt(g.intro)}</p>`
+    ? `<p style="margin:0 0 10px;color:${MUTED};font-size:14px;line-height:1.6;">${fmt(g.intro)}</p>`
     : "";
   const items = g.items
-    .map((it) => `<li style="margin:0 0 6px;color:${INK};font-size:15px;line-height:1.55;">${fmt(it)}</li>`)
+    .map((it) => `<li style="margin:0 0 6px;color:${INK};"><span style="font-weight:bold;">${fmt(it)}</span></li>`)
     .join("");
-  return `<h2 style="margin:20px 0 12px;color:${NAVY};font-size:18px;font-weight:700;line-height:1.3;">✅ ${esc(g.heading)}</h2>
+  return `<h2 style="font-size:16px;margin:28px 0 10px;color:${INK};font-weight:bold;">✅ ${esc(g.heading)}</h2>
     ${intro}
-    <ul style="margin:0 0 14px;padding-left:20px;">${items}</ul>`;
+    <ul style="margin:8px 0 16px;padding-left:20px;font-size:14px;line-height:1.6;">${items}</ul>`;
 }
 
 function renderSourceLine(item: NewsletterItemContent): string {
@@ -276,10 +288,10 @@ function renderSourceLine(item: NewsletterItemContent): string {
   const src = item.source_name ? `Fonte: ${esc(item.source_name)}` : "";
   const line = [pub, src].filter(Boolean).join(" · ");
   const link = item.source_url
-    ? ` — <a href="${item.source_url}" style="color:${NAVY};">Ler na fonte original →</a>`
+    ? ` — <a href="${esc(item.source_url)}" style="color:${NAVY};text-decoration:underline;">Ler na fonte original →</a>`
     : "";
   if (!line && !link) return "";
-  return `<p style="margin:16px 0 0;color:${MUTED};font-size:12px;">${line}${link}</p>`;
+  return `<p style="font-size:12px;color:#5a6472;margin:20px 0 0;">${line}${link}</p>`;
 }
 
 function pickHeroIcon(tag?: string, title?: string): string {
