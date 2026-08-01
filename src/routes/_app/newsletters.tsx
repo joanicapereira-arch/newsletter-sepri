@@ -7,6 +7,9 @@ import {
   getNewsletter,
   updateNewsletterHtml,
   uploadNewsletterImage,
+  trashNewsletter,
+  restoreNewsletter,
+  deleteNewsletterPermanently,
 } from "@/lib/detections.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,7 +28,10 @@ import {
   AlignCenter,
   AlignRight,
   Image as ImageIcon,
+  Trash2,
+  RotateCcw,
 } from "lucide-react";
+
 
 export const Route = createFileRoute("/_app/newsletters")({
   head: () => ({ meta: [{ title: "Newsletters · SEPRI" }] }),
