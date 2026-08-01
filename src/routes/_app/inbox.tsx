@@ -147,6 +147,10 @@ function InboxPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setShowManual((v) => !v)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Adicionar notícia
+          </Button>
           <Button onClick={() => scanMut.mutate()} disabled={scanMut.isPending}>
             {scanMut.isPending ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -157,6 +161,62 @@ function InboxPage() {
           </Button>
         </div>
       </div>
+
+      {showManual && (
+        <Card className="mb-4">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Adicionar notícia manualmente</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Indica a fonte e o URL da notícia. O título, resumo, data e relevância são
+              preenchidos automaticamente e a notícia entra em <strong>Pendentes</strong>.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid gap-3 md:grid-cols-[240px_1fr]">
+              <div className="space-y-1.5">
+                <Label>Fonte</Label>
+                <Select value={manualSourceId} onValueChange={setManualSourceId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Escolher fonte" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(sources ?? []).map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>URL da notícia</Label>
+                <Input
+                  value={manualUrl}
+                  onChange={(e) => setManualUrl(e.target.value)}
+                  placeholder="https://…"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => manualMut.mutate()}
+                disabled={!manualSourceId || !manualUrl.trim() || manualMut.isPending}
+              >
+                {manualMut.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4 mr-2" />
+                )}
+                Adicionar
+              </Button>
+              <Button variant="ghost" onClick={() => setShowManual(false)}>
+                Cancelar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
 
       <Tabs
         value={status}
