@@ -137,7 +137,6 @@ function NewslettersPage() {
       // Para não cortar linhas de texto a meio, procuramos uma faixa horizontal
       // "vazia" (uniforme) perto do fim da página e cortamos aí.
       const srcCtx = canvas.getContext("2d");
-      console.log("PDFSLICE v2 active", !!srcCtx);
       const isBlankRow = (row: number) => {
         if (!srcCtx) return false;
         const d = srcCtx.getImageData(0, row, canvas.width, 1).data;
