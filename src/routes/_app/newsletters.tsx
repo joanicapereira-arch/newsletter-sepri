@@ -128,6 +128,9 @@ function NewslettersPage() {
               <Button size="sm" variant="outline" onClick={() => downloadHtml(full.subject, full.html)}>
                 <Download className="w-4 h-4 mr-1" /> Download
               </Button>
+              <Button size="sm" variant="outline" onClick={() => downloadDocx(full.id)}>
+                <FileText className="w-4 h-4 mr-1" /> Word
+              </Button>
               <Button size="sm" variant="ghost" onClick={() => setOpenId(null)}>
                 Fechar
               </Button>
