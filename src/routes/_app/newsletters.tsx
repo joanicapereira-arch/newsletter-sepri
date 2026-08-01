@@ -47,6 +47,12 @@ function NewslettersPage() {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const savedRangeRef = useRef<Range | null>(null);
+  const detachImageEditingRef = useRef<(() => void) | null>(null);
+
+  function detachImageEditing() {
+    detachImageEditingRef.current?.();
+    detachImageEditingRef.current = null;
+  }
 
   const [tab, setTab] = useState<"active" | "trash">("active");
 
