@@ -162,10 +162,10 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
         <div style="text-decoration:underline;">Rua 6-1L, Bairro da Boavista, Luanda, Angola</div>
         <div style="margin-top:6px;">www.sepri.pt · comunicacao@sepri.pt</div>
         <div style="margin:18px 0;">
-          <span style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;background:${INK};color:#fff;margin:0 4px;font-size:11px;font-weight:bold;">in</span>
-          <span style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;background:${INK};color:#fff;margin:0 4px;font-size:11px;font-weight:bold;">ig</span>
-          <span style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;background:${INK};color:#fff;margin:0 4px;font-size:11px;font-weight:bold;">fb</span>
-          <span style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;background:${INK};color:#fff;margin:0 4px;font-size:11px;font-weight:bold;">yt</span>
+          <a href="https://www.linkedin.com/company/sepri-group/" target="_blank" rel="noopener" style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;background:${INK};color:#fff;margin:0 4px;font-size:11px;font-weight:bold;text-decoration:none;">in</a>
+          <a href="https://www.instagram.com/sepri_group/" target="_blank" rel="noopener" style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;background:${INK};color:#fff;margin:0 4px;font-size:11px;font-weight:bold;text-decoration:none;">ig</a>
+          <a href="https://www.facebook.com/grupo.sepri" target="_blank" rel="noopener" style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;background:${INK};color:#fff;margin:0 4px;font-size:11px;font-weight:bold;text-decoration:none;">fb</a>
+          <a href="https://www.youtube.com/@seprigroup" target="_blank" rel="noopener" style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;background:${INK};color:#fff;margin:0 4px;font-size:11px;font-weight:bold;text-decoration:none;">yt</a>
         </div>
         <div>Este e-mail foi enviado para {{ contact.EMAIL }}.</div>
         <div style="font-size:11px;color:#8a93a0;margin-top:16px;">${chrome.disclaimerHtml}</div>
