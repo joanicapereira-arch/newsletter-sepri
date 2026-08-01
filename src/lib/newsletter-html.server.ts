@@ -183,9 +183,12 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
 const SOCIAL_ICON_BASE = "https://sepri-legis-digest.lovable.app/social";
 
 function renderSocialIcon(href: string, slug: string, label: string): string {
-  return `<a href="${esc(href)}" target="_blank" rel="noopener" style="display:inline-block;width:28px;height:28px;border-radius:50%;background:${INK};margin:0 4px;text-align:center;line-height:28px;text-decoration:none;">
-    <img src="${SOCIAL_ICON_BASE}/${slug}.png" width="16" height="16" alt="${esc(label)}" style="vertical-align:middle;" />
-  </a>`;
+  return `<td width="28" height="28" align="center" valign="middle" style="width:28px;height:28px;border-radius:50%;background:${INK};text-align:center;vertical-align:middle;padding:0;">
+    <a href="${esc(href)}" target="_blank" rel="noopener" style="display:block;line-height:0;text-decoration:none;">
+      <img src="${SOCIAL_ICON_BASE}/${slug}.png" width="14" height="14" alt="${esc(label)}" style="display:inline-block;vertical-align:middle;border:0;" />
+    </a>
+  </td>
+  <td width="8" style="width:8px;font-size:0;line-height:0;">&nbsp;</td>`;
 }
 
 function renderIntroBlock(paragraphs: string[]): string {
