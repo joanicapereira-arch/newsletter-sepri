@@ -31,6 +31,7 @@ import {
   Trash2,
   RotateCcw,
 } from "lucide-react";
+import { attachImageEditing } from "@/lib/newsletter-image-editing";
 
 
 export const Route = createFileRoute("/_app/newsletters")({
