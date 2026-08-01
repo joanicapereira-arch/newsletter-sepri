@@ -79,14 +79,25 @@ function NewslettersPage() {
       toast.error("O browser bloqueou a janela de impressão. Permite pop-ups para este site.");
       return;
     }
+    // Newsletters antigas foram guardadas antes de o <style> de impressão
+    // existir no template, por isso injetamos as regras aqui também.
+    const printCss = `<style>@media print{
+      html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#ffffff !important;padding:0 !important;}
+      body > table[role="presentation"]{background:#ffffff !important;}
+      h1,h2,h3,li,tr{page-break-inside:avoid;break-inside:avoid;}
+    }</style>`;
+    const doc = html.includes("</head>")
+      ? html.replace("</head>", `${printCss}</head>`)
+      : `${printCss}${html}`;
     win.document.open();
-    win.document.write(html);
+    win.document.write(doc);
     win.document.close();
     win.onload = () => {
       win.focus();
       win.print();
     };
   }
+
 
 
 
