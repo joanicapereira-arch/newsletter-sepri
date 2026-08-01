@@ -7,6 +7,9 @@ import {
   getNewsletter,
   updateNewsletterHtml,
   uploadNewsletterImage,
+  trashNewsletter,
+  restoreNewsletter,
+  deleteNewsletterPermanently,
 } from "@/lib/detections.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,7 +28,10 @@ import {
   AlignCenter,
   AlignRight,
   Image as ImageIcon,
+  Trash2,
+  RotateCcw,
 } from "lucide-react";
+
 
 export const Route = createFileRoute("/_app/newsletters")({
   head: () => ({ meta: [{ title: "Newsletters · SEPRI" }] }),
@@ -41,10 +47,50 @@ function NewslettersPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const savedRangeRef = useRef<Range | null>(null);
 
+  const [tab, setTab] = useState<"active" | "trash">("active");
+
   const { data, isLoading } = useQuery({
-    queryKey: ["newsletters"],
-    queryFn: () => listNewsletters(),
+    queryKey: ["newsletters", tab],
+    queryFn: () => listNewsletters({ data: { trashed: tab === "trash" } }),
   });
+
+  async function refreshLists() {
+    await queryClient.invalidateQueries({ queryKey: ["newsletters"] });
+  }
+
+  async function handleTrash(id: string) {
+    try {
+      await trashNewsletter({ data: { id } });
+      if (openId === id) closeModal();
+      await refreshLists();
+      toast.success("Newsletter movida para o Lixo");
+    } catch {
+      toast.error("Não foi possível mover a newsletter para o Lixo.");
+    }
+  }
+
+  async function handleRestore(id: string) {
+    try {
+      await restoreNewsletter({ data: { id } });
+      await refreshLists();
+      toast.success("Newsletter restaurada");
+    } catch {
+      toast.error("Não foi possível restaurar a newsletter.");
+    }
+  }
+
+  async function handleDeleteForever(id: string) {
+    if (!window.confirm("Eliminar definitivamente esta newsletter? Esta ação não pode ser revertida.")) return;
+    try {
+      await deleteNewsletterPermanently({ data: { id } });
+      if (openId === id) closeModal();
+      await refreshLists();
+      toast.success("Newsletter eliminada definitivamente");
+    } catch {
+      toast.error("Não foi possível eliminar a newsletter.");
+    }
+  }
+
   const { data: full } = useQuery({
     queryKey: ["newsletter", openId],
     queryFn: () => getNewsletter({ data: { id: openId! } }),
@@ -193,11 +239,32 @@ function NewslettersPage() {
         </div>
       </div>
 
+      <div className="flex gap-2 mb-5 border-b">
+        {([
+          { key: "active", label: "Newsletters" },
+          { key: "trash", label: "Lixo" },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
+              tab === t.key
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       {isLoading && <p className="text-muted-foreground">A carregar…</p>}
       {data && data.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            Ainda nenhuma newsletter gerada. Aprova uma deteção na caixa de entrada.
+            {tab === "trash"
+              ? "O Lixo está vazio."
+              : "Ainda nenhuma newsletter gerada. Aprova uma deteção na caixa de entrada."}
           </CardContent>
         </Card>
       )}
@@ -219,11 +286,26 @@ function NewslettersPage() {
                   <Button size="sm" variant="outline" onClick={() => setOpenId(n.id)}>
                     <Eye className="w-4 h-4 mr-1" /> Pré-visualizar
                   </Button>
+                  {tab === "active" ? (
+                    <Button size="sm" variant="outline" onClick={() => handleTrash(n.id)}>
+                      <Trash2 className="w-4 h-4 mr-1" /> Eliminar
+                    </Button>
+                  ) : (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => handleRestore(n.id)}>
+                        <RotateCcw className="w-4 h-4 mr-1" /> Restaurar
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => handleDeleteForever(n.id)}>
+                        <Trash2 className="w-4 h-4 mr-1" /> Eliminar definitivamente
+                      </Button>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
           );
         })}
+
       </div>
 
       {openId && full && (
