@@ -163,6 +163,8 @@ function NewslettersPage() {
       return;
     }
     doc.designMode = "on";
+    detachImageEditing();
+    detachImageEditingRef.current = attachImageEditing(doc);
     setEditing(true);
   }
 
