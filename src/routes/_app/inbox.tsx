@@ -6,7 +6,6 @@ import {
   listDetections,
   categorizeDetection,
   generateNewsletterFromSelection,
-  updateDetectionUrl,
 } from "@/lib/detections.functions";
 import { triggerManualScan } from "@/lib/scan.functions";
 import { Button } from "@/components/ui/button";
@@ -14,7 +13,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
 import {
   Info,
   Flame,
@@ -24,8 +22,6 @@ import {
   Loader2,
   Sparkles,
   Undo2,
-  Pencil,
-  Check,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/inbox")({
@@ -39,8 +35,6 @@ type Category = "pending" | "informativo" | "prioritario" | "rejected";
 function InboxPage() {
   const [status, setStatus] = useState<Status>("pending");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [editingUrlId, setEditingUrlId] = useState<string | null>(null);
-  const [urlDraft, setUrlDraft] = useState("");
   const qc = useQueryClient();
 
   const { data: detections, isLoading } = useQuery({
@@ -104,16 +98,6 @@ function InboxPage() {
       clearSelection();
       qc.invalidateQueries({ queryKey: ["detections"] });
       qc.invalidateQueries({ queryKey: ["newsletters"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  const updateUrlMut = useMutation({
-    mutationFn: (vars: { id: string; source_url: string }) =>
-      updateDetectionUrl({ data: { detection_id: vars.id, source_url: vars.source_url } }),
-    onSuccess: () => {
-      toast.success("Link atualizado");
-      setEditingUrlId(null);
-      qc.invalidateQueries({ queryKey: ["detections"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -244,44 +228,9 @@ function InboxPage() {
                       <ExternalLink className="w-4 h-4" />
                     </a>
                   )}
-                  <button
-                    type="button"
-                    className="text-muted-foreground hover:text-foreground"
-                    title="Editar link"
-                    onClick={() => {
-                      setEditingUrlId(d.id);
-                      setUrlDraft(d.source_url ?? "");
-                    }}
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
                 </div>
               </CardHeader>
               <CardContent>
-                {editingUrlId === d.id ? (
-                  <div className="flex items-center gap-2 mb-3">
-                    <Input
-                      value={urlDraft}
-                      onChange={(e) => setUrlDraft(e.target.value)}
-                      placeholder="https://..."
-                      className="text-xs h-8"
-                    />
-                    <Button
-                      size="sm"
-                      onClick={() => updateUrlMut.mutate({ id: d.id, source_url: urlDraft })}
-                      disabled={updateUrlMut.isPending}
-                    >
-                      <Check className="w-4 h-4" />
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEditingUrlId(null)}>
-                      Cancelar
-                    </Button>
-                  </div>
-                ) : !d.source_url ? (
-                  <div className="text-xs text-muted-foreground mb-3">
-                    Sem link específico confirmado — usa o lápis para adicionar um manualmente.
-                  </div>
-                ) : null}
                 <p className="text-sm text-foreground/80 mb-4">{d.summary}</p>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs text-muted-foreground mr-auto">

@@ -49,35 +49,6 @@ export const categorizeDetection = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/**
- * Correção manual do link de uma deteção. A extração automática (Firecrawl +
- * IA + verificação por fetch) reduz muito os links errados, mas alguns sites
- * governamentais têm estruturas difíceis de mapear automaticamente — isto dá
- * à Eliana uma forma imediata de corrigir um link a partir da Inbox, sem
- * esperar por um novo scan.
- */
-export const updateDetectionUrl = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) =>
-    z
-      .object({
-        detection_id: z.string().uuid(),
-        source_url: z.string().url(),
-      })
-      .parse(d),
-  )
-  .handler(async ({ data }) => {
-    const admin = await getAdmin();
-    const { error } = await admin
-      .from("detections")
-      .update({ source_url: data.source_url })
-      .eq("id", data.detection_id);
-    if (error) {
-      console.error("[updateDetectionUrl] db error", error);
-      throw new Error("Não foi possível guardar o link.");
-    }
-    return { ok: true };
-  });
-
 export const generateNewsletterFromSelection = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z.object({ detection_ids: z.array(z.string().uuid()).min(1).max(20) }).parse(d),
