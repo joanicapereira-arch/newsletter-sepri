@@ -5,11 +5,12 @@ import { toast } from "sonner";
 import {
   listNewsletters,
   getNewsletter,
+  getNewsletterDocx,
 } from "@/lib/detections.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Download, Eye } from "lucide-react";
+import { Copy, Download, Eye, FileText } from "lucide-react";
 
 export const Route = createFileRoute("/_app/newsletters")({
   head: () => ({ meta: [{ title: "Newsletters · SEPRI" }] }),
@@ -42,6 +43,29 @@ function NewslettersPage() {
     a.download = `${subject.replace(/[^a-z0-9]+/gi, "-").slice(0, 60)}.html`;
     a.click();
   }
+
+  async function downloadDocx(id: string) {
+    toast.info("A preparar o Word...");
+    try {
+      const { subject, base64 } = await getNewsletterDocx({ data: { id } });
+      const byteChars = atob(base64);
+      const byteNumbers = new Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${subject.replace(/[^a-z0-9]+/gi, "-").slice(0, 60)}.docx`;
+      a.click();
+    } catch (err) {
+      console.error(err);
+      toast.error("Não foi possível gerar o Word.");
+    }
+  }
+
+
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
@@ -103,6 +127,9 @@ function NewslettersPage() {
               </Button>
               <Button size="sm" variant="outline" onClick={() => downloadHtml(full.subject, full.html)}>
                 <Download className="w-4 h-4 mr-1" /> Download
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => downloadDocx(full.id)}>
+                <FileText className="w-4 h-4 mr-1" /> Word
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setOpenId(null)}>
                 Fechar
