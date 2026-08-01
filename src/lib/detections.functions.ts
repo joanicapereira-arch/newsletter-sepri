@@ -124,6 +124,26 @@ export const getNewsletter = createServerFn({ method: "POST" })
     return row;
   });
 
+export const getNewsletterDocx = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
+    const { data: row, error } = await admin
+      .from("newsletters")
+      .select("subject,html")
+      .eq("id", data.id)
+      .single();
+    if (error || !row) {
+      console.error("[getNewsletterDocx] db error", error);
+      throw new Error("Não foi possível carregar a newsletter.");
+    }
+    const { renderNewsletterDocx } = await import("./newsletter-docx.server");
+    const buffer = await renderNewsletterDocx(row.html, row.subject);
+    return { subject: row.subject, base64: buffer.toString("base64") };
+  });
+
+
+
 export const listScanRuns = createServerFn({ method: "GET" })
   .handler(async () => {
     const admin = await getAdmin();
