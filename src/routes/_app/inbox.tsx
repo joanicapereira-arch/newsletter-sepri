@@ -6,12 +6,23 @@ import {
   listDetections,
   categorizeDetection,
   generateNewsletterFromSelection,
+  addManualDetection,
 } from "@/lib/detections.functions";
+import { listSources } from "@/lib/sources.functions";
 import { triggerManualScan } from "@/lib/scan.functions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Info,
@@ -22,12 +33,14 @@ import {
   Loader2,
   Sparkles,
   Undo2,
+  Plus,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/inbox")({
   head: () => ({ meta: [{ title: "Caixa de entrada · SEPRI" }] }),
   component: InboxPage,
 });
+
 
 type Status = "pending" | "informativo" | "prioritario" | "rejected";
 type Category = "pending" | "informativo" | "prioritario" | "rejected";
