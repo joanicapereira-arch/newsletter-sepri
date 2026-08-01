@@ -123,6 +123,21 @@ function NewslettersPage() {
     setEditing(true);
   }
 
+  function exec(command: string, value?: string) {
+    const win = iframeRef.current?.contentWindow;
+    const doc = iframeRef.current?.contentDocument;
+    if (!win || !doc) return;
+    win.focus();
+    doc.execCommand(command, false, value);
+  }
+
+  function insertImage() {
+    const url = window.prompt("URL da imagem (https://...)");
+    if (!url) return;
+    exec("insertImage", url);
+  }
+
+
   async function saveEdits(id: string) {
     const doc = iframeRef.current?.contentDocument;
     if (!doc) return;
