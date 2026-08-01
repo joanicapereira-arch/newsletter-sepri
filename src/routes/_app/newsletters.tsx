@@ -44,6 +44,29 @@ function NewslettersPage() {
     a.click();
   }
 
+  async function downloadDocx(id: string) {
+    toast.info("A preparar o Word...");
+    try {
+      const { subject, base64 } = await getNewsletterDocx({ data: { id } });
+      const byteChars = atob(base64);
+      const byteNumbers = new Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${subject.replace(/[^a-z0-9]+/gi, "-").slice(0, 60)}.docx`;
+      a.click();
+    } catch (err) {
+      console.error(err);
+      toast.error("Não foi possível gerar o Word.");
+    }
+  }
+
+
+
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex items-start justify-between gap-4 mb-6">
