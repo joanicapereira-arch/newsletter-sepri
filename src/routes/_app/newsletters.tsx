@@ -106,6 +106,7 @@ function NewslettersPage() {
 
   function closeModal() {
     const doc = iframeRef.current?.contentDocument;
+    detachImageEditing();
     if (doc) doc.designMode = "off";
     setEditing(false);
     setOpenId(null);
