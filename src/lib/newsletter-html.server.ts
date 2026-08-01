@@ -117,7 +117,8 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
     html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #ffffff !important; }
     body { padding: 0 !important; }
     body > table[role="presentation"] { background: #ffffff !important; }
-    h1, h2, h3, li, tr { page-break-inside: avoid; break-inside: avoid; }
+    h1, h2, h3 { page-break-after: avoid; break-after: avoid; }
+    li { page-break-inside: avoid; break-inside: avoid; }
   }
 </style>
 
