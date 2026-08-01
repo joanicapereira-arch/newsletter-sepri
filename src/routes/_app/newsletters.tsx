@@ -31,6 +31,7 @@ import {
   Trash2,
   RotateCcw,
 } from "lucide-react";
+import { attachImageEditing } from "@/lib/newsletter-image-editing";
 
 
 export const Route = createFileRoute("/_app/newsletters")({
@@ -46,6 +47,12 @@ function NewslettersPage() {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const savedRangeRef = useRef<Range | null>(null);
+  const detachImageEditingRef = useRef<(() => void) | null>(null);
+
+  function detachImageEditing() {
+    detachImageEditingRef.current?.();
+    detachImageEditingRef.current = null;
+  }
 
   const [tab, setTab] = useState<"active" | "trash">("active");
 
@@ -99,6 +106,7 @@ function NewslettersPage() {
 
   function closeModal() {
     const doc = iframeRef.current?.contentDocument;
+    detachImageEditing();
     if (doc) doc.designMode = "off";
     setEditing(false);
     setOpenId(null);
@@ -155,6 +163,8 @@ function NewslettersPage() {
       return;
     }
     doc.designMode = "on";
+    detachImageEditing();
+    detachImageEditingRef.current = attachImageEditing(doc);
     setEditing(true);
   }
 
@@ -214,6 +224,7 @@ function NewslettersPage() {
     if (!doc) return;
     setSaving(true);
     try {
+      detachImageEditing();
       const html = doc.documentElement.outerHTML;
       await updateNewsletterHtml({ data: { id, html } });
       doc.designMode = "off";
@@ -222,6 +233,7 @@ function NewslettersPage() {
       toast.success("Alterações guardadas");
     } catch (err) {
       console.error(err);
+      detachImageEditingRef.current = attachImageEditing(doc);
       toast.error("Não foi possível guardar as alterações.");
     } finally {
       setSaving(false);
@@ -456,7 +468,7 @@ function NewslettersPage() {
                   />
                 </div>
                 <div className="px-4 py-2 text-xs font-medium bg-primary/10 text-primary border-b">
-                  Modo de edição — seleciona o texto e usa a barra acima. Para trocar uma imagem, seleciona-a e clica em “Imagem”.
+                  Modo de edição — seleciona o texto e usa a barra acima. Clica numa imagem para a selecionar: arrasta-a para a mover livremente, usa os cantos para redimensionar (ou as setas do teclado para ajustes finos).
                 </div>
               </>
             )}
