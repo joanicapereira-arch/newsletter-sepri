@@ -233,6 +233,7 @@ function NewslettersPage() {
       toast.success("Alterações guardadas");
     } catch (err) {
       console.error(err);
+      detachImageEditingRef.current = attachImageEditing(doc);
       toast.error("Não foi possível guardar as alterações.");
     } finally {
       setSaving(false);
