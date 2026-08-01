@@ -121,6 +121,21 @@ function InboxPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const manualMut = useMutation({
+    mutationFn: () =>
+      addManualDetection({ data: { source_id: manualSourceId, url: manualUrl.trim() } }),
+    onSuccess: (r) => {
+      toast.success(`Notícia adicionada aos Pendentes: ${r.title}`);
+      setManualUrl("");
+      setShowManual(false);
+      setStatus("pending");
+      qc.invalidateQueries({ queryKey: ["detections"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
+
   return (
     <div className="p-8 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
