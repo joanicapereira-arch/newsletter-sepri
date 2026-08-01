@@ -134,10 +134,36 @@ function NewslettersPage() {
       const pageCanvas = document.createElement("canvas");
       const ctx = pageCanvas.getContext("2d")!;
       const sliceHpx = Math.floor((usableH * canvas.width) / imgW);
+      // Para não cortar linhas de texto a meio, procuramos uma faixa horizontal
+      // "vazia" (uniforme) perto do fim da página e cortamos aí.
+      const srcCtx = canvas.getContext("2d");
+      const isBlankRow = (row: number) => {
+        if (!srcCtx) return false;
+        const d = srcCtx.getImageData(0, row, canvas.width, 1).data;
+        const r0 = d[0]!, g0 = d[1]!, b0 = d[2]!;
+        for (let i = 4; i < d.length; i += 4) {
+          if (
+            Math.abs(d[i]! - r0) > 6 ||
+            Math.abs(d[i + 1]! - g0) > 6 ||
+            Math.abs(d[i + 2]! - b0) > 6
+          )
+            return false;
+        }
+        return true;
+      };
       let y = 0;
       let page = 0;
       while (y < canvas.height) {
-        const h = Math.min(sliceHpx, canvas.height - y);
+        let h = Math.min(sliceHpx, canvas.height - y);
+        if (y + h < canvas.height) {
+          const minH = Math.floor(h * 0.85);
+          for (let cut = h; cut >= minH; cut -= 2) {
+            if (isBlankRow(y + cut - 1)) {
+              h = cut;
+              break;
+            }
+          }
+        }
         pageCanvas.width = canvas.width;
         pageCanvas.height = h;
         ctx.fillStyle = "#ffffff";
@@ -155,6 +181,7 @@ function NewslettersPage() {
         y += h;
         page += 1;
       }
+
       pdf.save(`${safeName(subject)}.pdf`);
     } catch (err) {
       console.error(err);
