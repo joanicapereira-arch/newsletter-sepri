@@ -224,6 +224,7 @@ function NewslettersPage() {
     if (!doc) return;
     setSaving(true);
     try {
+      detachImageEditing();
       const html = doc.documentElement.outerHTML;
       await updateNewsletterHtml({ data: { id, html } });
       doc.designMode = "off";
