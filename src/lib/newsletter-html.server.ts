@@ -124,17 +124,17 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
           : `<div style="font-weight:900;font-size:20px;color:${NAVY};letter-spacing:1px;">sepri <span style="font-size:11px;color:${TURQ};font-weight:600;">Group</span></div>`}
       </td></tr>
 
-      <!-- HERO -->
-      <tr><td style="background:${NAVY};padding:28px 32px;">
+      <!-- HERO (fundo de ponta a ponta) -->
+      <tr><td style="background:${NAVY};padding:28px 0;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr>
+            <td width="32" style="width:32px;font-size:0;line-height:0;">&nbsp;</td>
             <td width="72" valign="middle" style="font-size:48px;line-height:1;color:#ffffff;">${esc(heroIcon)}</td>
             <td valign="middle">
-              ${heroTag
-                ? `<div style="display:inline-block;background:${TURQ};color:${NAVY};font-size:12px;font-weight:700;letter-spacing:0.5px;padding:4px 12px;border-radius:12px;margin-bottom:10px;text-transform:uppercase;">${esc(heroTag)}</div>`
-                : ""}
+              ${heroTag ? renderHeroTag(heroTag) : ""}
               <h1 style="color:#ffffff;font-size:24px;line-height:1.25;margin:0;font-weight:800;">${esc(heroTitle)}</h1>
             </td>
+            <td width="32" style="width:32px;font-size:0;line-height:0;">&nbsp;</td>
           </tr>
         </table>
       </td></tr>
@@ -143,9 +143,10 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
       ${renderIntroBlock(introParas)}
 
       <!-- BODY -->
-      <tr><td style="padding:32px 40px;background:#ffffff;color:${INK};font-size:14px;line-height:1.6;">
+      <tr><td style="padding:32px 56px;background:#ffffff;color:${INK};font-size:14px;line-height:1.6;">
         ${bodyBlock}
       </td></tr>
+
 
       <!-- DESTAQUE (recurso/imagem associado, ex: panfleto para descarregar) -->
       ${highlightRows}
@@ -193,15 +194,26 @@ function renderSocialIcon(href: string, slug: string, label: string): string {
 }
 
 
+function renderHeroTag(tag: string): string {
+  // Pílula em <div> com altura/line-height fixos e raio ligeiramente inferior a
+  // metade da altura: com raio == metade da altura o html2canvas desenha
+  // "pontas"/setas nos cantos em vez de um arredondado limpo.
+  return `<div style="margin:0 0 10px;">
+    <span style="display:inline-block;height:26px;line-height:26px;padding:0 14px;background:${TURQ};color:${NAVY};font-size:12px;font-weight:700;letter-spacing:0.5px;border-radius:10px;text-align:center;text-transform:uppercase;white-space:nowrap;">${esc(tag)}</span>
+  </div>`;
+}
+
+
 function renderIntroBlock(paragraphs: string[]): string {
   if (!paragraphs.length) return "";
   const [first, ...rest] = paragraphs;
   const firstHtml = `<strong style="display:block;font-size:15px;margin-bottom:10px;">${esc(first)}</strong>`;
   const restHtml = rest.map((p) => esc(p)).join(" ");
-  return `<tr><td style="background:${TURQ};color:#ffffff;text-align:center;padding:28px 40px;font-size:14px;line-height:1.7;">
-    ${firstHtml}${restHtml}
+  return `<tr><td style="background:${TURQ};color:#ffffff;text-align:center;padding:28px 0;font-size:14px;line-height:1.7;">
+    <div style="padding:0 40px;">${firstHtml}${restHtml}</div>
   </td></tr>`;
 }
+
 
 function renderHighlightBlock(resource: NewsletterResource): string {
   const img = resource.imageUrl
@@ -220,11 +232,12 @@ function renderCta(cta: NewsletterCta): string {
   const href = cta.url ?? "https://www.sepri.pt/contactos";
   return `<tr><td style="padding:8px 40px 32px;background:#ffffff;">
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
-      <tr><td align="center" valign="middle" style="text-align:center;vertical-align:middle;background:${NAVY};border-radius:24px;padding:14px 28px;">
-        <a href="${esc(href)}" style="display:inline-block;color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;line-height:1.2;">${esc(cta.label)}</a>
+      <tr><td height="48" align="center" valign="middle" style="height:48px;line-height:48px;background:${NAVY};border-radius:20px;padding:0 32px;text-align:center;vertical-align:middle;">
+        <a href="${esc(href)}" style="color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;line-height:48px;display:inline-block;vertical-align:middle;">${esc(cta.label)}</a>
       </td></tr>
     </table>
   </td></tr>`;
+
 }
 
 

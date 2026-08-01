@@ -80,15 +80,14 @@ function NewslettersPage() {
       return;
     }
     toast.info("A preparar o PDF...");
-    // html2canvas (usado pelo html2pdf) não sabe interpretar cores oklch, e o
-    // tema da app usa tokens oklch que se aplicam ao clone temporário.
-    // Neutralizamos essas cores só durante a geração.
+    // html2canvas clona o elemento para dentro deste documento, por isso os
+    // tokens oklch e os efeitos decorativos do tema da app aplicam-se ao clone.
+    // Neutralizamos tudo isso só durante a captura.
     const patch = document.createElement("style");
     patch.textContent = `html,body{background-color:#ffffff !important;color:#2b2b2b !important;}
 *,*::before,*::after{border-color:#d5dbe0 !important;outline-color:#d5dbe0 !important;text-decoration-color:currentColor !important;}`;
     document.head.appendChild(patch);
-    // html2canvas não desenha os marcadores nativos das listas (::marker),
-    // por isso injetamos bullets reais no HTML e removemo-los no fim.
+    // html2canvas não desenha ::marker, por isso injetamos bullets reais.
     const injected: HTMLElement[] = [];
     doc.querySelectorAll("li").forEach((li) => {
       const dot = doc.createElement("span");
@@ -97,31 +96,93 @@ function NewslettersPage() {
       li.insertBefore(dot, li.firstChild);
       injected.push(dot);
     });
+    // Limpa a seleção do editor para o realce não ser capturado na imagem.
+    doc.getSelection()?.removeAllRanges();
+    window.getSelection()?.removeAllRanges();
     try {
-      const { default: html2pdf } = await import("html2pdf.js");
-      await html2pdf()
-        .set({
-          // html2pdf/jsPDF margin order: [top, left, bottom, right] (pt)
-          margin: [24, 0, 24, 0],
-          filename: `${safeName(subject)}.pdf`,
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: {
-            scale: 2,
-            useCORS: true,
-            onclone: (clonedDoc: Document) => {
-              const style = clonedDoc.createElement("style");
-              style.textContent = "li{list-style:none !important;}";
-              clonedDoc.head.appendChild(style);
-            },
-          },
-          jsPDF: { unit: "pt", format: "a4", orientation: "portrait" },
-          pagebreak: { mode: ["css", "avoid-all", "legacy"] },
-        } as never)
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const canvas = await html2canvas(target, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        onclone: (clonedDoc: Document) => {
+          const style = clonedDoc.createElement("style");
+          // Sem list-style nativo, sem sombras/filtros/gradientes herdados do
+          // tema da app (origem das "manchas" cinzentas desfocadas) e sem
+          // pseudo-elementos decorativos.
+          style.textContent = `li{list-style:none !important;}
+*{box-shadow:none !important;filter:none !important;text-shadow:none !important;background-image:none !important;mix-blend-mode:normal !important;opacity:1 !important;}
+*::before,*::after{box-shadow:none !important;filter:none !important;background-image:none !important;}
+::selection{background:transparent !important;}`;
+          clonedDoc.head.appendChild(style);
+        },
+      });
 
-        .from(target)
-        .save();
+      const pdf = new jsPDF({ unit: "pt", format: "a4", orientation: "portrait" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const margin = 24;
+      const maxW = pageW - margin * 2;
+      // Ocupa toda a largura útil e fica centrado por construção.
+      const imgW = maxW;
+      const offsetX = (pageW - imgW) / 2;
+      const usableH = pageH - margin * 2;
 
+      const pageCanvas = document.createElement("canvas");
+      const ctx = pageCanvas.getContext("2d")!;
+      const sliceHpx = Math.floor((usableH * canvas.width) / imgW);
+      // Para não cortar linhas de texto a meio, procuramos uma faixa horizontal
+      // "vazia" (uniforme) perto do fim da página e cortamos aí.
+      const srcCtx = canvas.getContext("2d");
+      const isBlankRow = (row: number) => {
+        if (!srcCtx) return false;
+        const d = srcCtx.getImageData(0, row, canvas.width, 1).data;
+        const r0 = d[0]!, g0 = d[1]!, b0 = d[2]!;
+        for (let i = 4; i < d.length; i += 4) {
+          if (
+            Math.abs(d[i]! - r0) > 6 ||
+            Math.abs(d[i + 1]! - g0) > 6 ||
+            Math.abs(d[i + 2]! - b0) > 6
+          )
+            return false;
+        }
+        return true;
+      };
+      let y = 0;
+      let page = 0;
+      while (y < canvas.height) {
+        let h = Math.min(sliceHpx, canvas.height - y);
+        if (y + h < canvas.height) {
+          const minH = Math.floor(h * 0.85);
+          for (let cut = h; cut >= minH; cut -= 2) {
+            if (isBlankRow(y + cut - 1)) {
+              h = cut;
+              break;
+            }
+          }
+        }
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = h;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, h);
+        ctx.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
+        if (page > 0) pdf.addPage();
+        pdf.addImage(
+          pageCanvas.toDataURL("image/jpeg", 0.95),
+          "JPEG",
+          offsetX,
+          margin,
+          imgW,
+          (h * imgW) / canvas.width,
+        );
+        y += h;
+        page += 1;
+      }
 
+      pdf.save(`${safeName(subject)}.pdf`);
     } catch (err) {
       console.error(err);
       toast.error("Não foi possível gerar o PDF.");
@@ -129,9 +190,8 @@ function NewslettersPage() {
       injected.forEach((el) => el.remove());
       patch.remove();
     }
-
-
   }
+
 
   function startEditing() {
     const doc = iframeRef.current?.contentDocument;
