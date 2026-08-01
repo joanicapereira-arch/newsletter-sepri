@@ -161,12 +161,14 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
         <div style="text-decoration:underline;">Av. Kim Il Sung, no. 1078, Maputo, Moçambique</div>
         <div style="text-decoration:underline;">Rua 6-1L, Bairro da Boavista, Luanda, Angola</div>
         <div style="margin-top:6px;">www.sepri.pt · comunicacao@sepri.pt</div>
-        <div style="margin:18px 0;">
-          ${renderSocialIcon("https://www.linkedin.com/company/sepri-group/", "linkedin", "LinkedIn")}
-          ${renderSocialIcon("https://www.instagram.com/sepri_group/", "instagram", "Instagram")}
-          ${renderSocialIcon("https://www.facebook.com/grupo.sepri", "facebook", "Facebook")}
-          ${renderSocialIcon("https://www.youtube.com/@seprigroup", "youtube", "YouTube")}
-        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px auto;">
+          <tr>
+            ${renderSocialIcon("https://www.linkedin.com/company/sepri-group/", "linkedin", "LinkedIn")}
+            ${renderSocialIcon("https://www.instagram.com/sepri_group/", "instagram", "Instagram")}
+            ${renderSocialIcon("https://www.facebook.com/grupo.sepri", "facebook", "Facebook")}
+            ${renderSocialIcon("https://www.youtube.com/@seprigroup", "youtube", "YouTube")}
+          </tr>
+        </table>
         <div>Este e-mail foi enviado para {{ contact.EMAIL }}.</div>
         <div style="font-size:11px;color:#8a93a0;margin-top:16px;">${chrome.disclaimerHtml}</div>
         <a href="{{ unsubscribe }}" style="display:inline-block;margin-top:10px;text-decoration:underline;color:#5a6472;font-size:12px;">Cancelar subscrição</a>
@@ -181,9 +183,12 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
 const SOCIAL_ICON_BASE = "https://sepri-legis-digest.lovable.app/social";
 
 function renderSocialIcon(href: string, slug: string, label: string): string {
-  return `<a href="${esc(href)}" target="_blank" rel="noopener" style="display:inline-block;width:28px;height:28px;border-radius:50%;background:${INK};margin:0 4px;text-align:center;line-height:28px;text-decoration:none;">
-    <img src="${SOCIAL_ICON_BASE}/${slug}.png" width="16" height="16" alt="${esc(label)}" style="vertical-align:middle;" />
-  </a>`;
+  return `<td width="28" height="28" align="center" valign="middle" style="width:28px;height:28px;border-radius:50%;background:${INK};text-align:center;vertical-align:middle;padding:0;">
+    <a href="${esc(href)}" target="_blank" rel="noopener" style="display:block;line-height:0;text-decoration:none;">
+      <img src="${SOCIAL_ICON_BASE}/${slug}.png" width="14" height="14" alt="${esc(label)}" style="display:inline-block;vertical-align:middle;border:0;" />
+    </a>
+  </td>
+  <td width="8" style="width:8px;font-size:0;line-height:0;">&nbsp;</td>`;
 }
 
 function renderIntroBlock(paragraphs: string[]): string {
