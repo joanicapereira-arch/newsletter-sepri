@@ -1,16 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   listNewsletters,
   getNewsletter,
   getNewsletterDocx,
+  updateNewsletterHtml,
 } from "@/lib/detections.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Download, Eye, FileText } from "lucide-react";
+import { Copy, Download, Eye, FileText, FileDown, Pencil, Save } from "lucide-react";
 
 export const Route = createFileRoute("/_app/newsletters")({
   head: () => ({ meta: [{ title: "Newsletters · SEPRI" }] }),
@@ -18,8 +19,12 @@ export const Route = createFileRoute("/_app/newsletters")({
 });
 
 function NewslettersPage() {
-  
+  const queryClient = useQueryClient();
   const [openId, setOpenId] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
   const { data, isLoading } = useQuery({
     queryKey: ["newsletters"],
     queryFn: () => listNewsletters(),
@@ -30,17 +35,23 @@ function NewslettersPage() {
     enabled: !!openId,
   });
 
-
+  function closeModal() {
+    const doc = iframeRef.current?.contentDocument;
+    if (doc) doc.designMode = "off";
+    setEditing(false);
+    setOpenId(null);
+  }
 
   async function copyHtml(html: string) {
     await navigator.clipboard.writeText(html);
     toast.success("HTML copiado");
   }
+
   function downloadHtml(subject: string, html: string) {
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `${subject.replace(/[^a-z0-9]+/gi, "-").slice(0, 60)}.html`;
+    a.download = `${safeName(subject)}.html`;
     a.click();
   }
 
@@ -51,12 +62,10 @@ function NewslettersPage() {
       const byteChars = atob(base64);
       const byteNumbers = new Array(byteChars.length);
       for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: "application/msword" });
+      const blob = new Blob([new Uint8Array(byteNumbers)], { type: "application/msword" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `${subject.replace(/[^a-z0-9]+/gi, "-").slice(0, 60)}.doc`;
-
+      a.download = `${safeName(subject)}.doc`;
       a.click();
     } catch (err) {
       console.error(err);
@@ -64,7 +73,70 @@ function NewslettersPage() {
     }
   }
 
+  async function downloadPdf(subject: string) {
+    const body = iframeRef.current?.contentDocument?.body;
+    if (!body) {
+      toast.error("Pré-visualização ainda não está pronta.");
+      return;
+    }
+    toast.info("A preparar o PDF...");
+    // html2canvas (usado pelo html2pdf) não sabe interpretar cores oklch, e o
+    // tema da app usa tokens oklch que se aplicam ao clone temporário.
+    // Neutralizamos essas cores só durante a geração.
+    const patch = document.createElement("style");
+    patch.textContent = `html,body{background-color:#ffffff !important;color:#2b2b2b !important;}
+*,*::before,*::after{border-color:#d5dbe0 !important;outline-color:#d5dbe0 !important;text-decoration-color:currentColor !important;}`;
+    document.head.appendChild(patch);
+    try {
+      const { default: html2pdf } = await import("html2pdf.js");
+      await html2pdf()
+        .set({
+          margin: 0,
+          filename: `${safeName(subject)}.pdf`,
+          image: { type: "jpeg", quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: "pt", format: "a4", orientation: "portrait" },
+        })
+        .from(body)
+        .save();
 
+    } catch (err) {
+      console.error(err);
+      toast.error("Não foi possível gerar o PDF.");
+    } finally {
+      patch.remove();
+    }
+
+  }
+
+  function startEditing() {
+    const doc = iframeRef.current?.contentDocument;
+    if (!doc) {
+      toast.error("Pré-visualização ainda não está pronta.");
+      return;
+    }
+    doc.designMode = "on";
+    setEditing(true);
+  }
+
+  async function saveEdits(id: string) {
+    const doc = iframeRef.current?.contentDocument;
+    if (!doc) return;
+    setSaving(true);
+    try {
+      const html = doc.documentElement.outerHTML;
+      await updateNewsletterHtml({ data: { id, html } });
+      doc.designMode = "off";
+      setEditing(false);
+      await queryClient.invalidateQueries({ queryKey: ["newsletter", id] });
+      toast.success("Alterações guardadas");
+    } catch (err) {
+      console.error(err);
+      toast.error("Não foi possível guardar as alterações.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
@@ -113,28 +185,54 @@ function NewslettersPage() {
       {openId && full && (
         <div
           className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-          onClick={() => setOpenId(null)}
+          onClick={() => !editing && closeModal()}
         >
           <div
             className="bg-card rounded-lg w-full max-w-4xl max-h-[90vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 border-b flex items-center justify-between gap-2">
-              <h2 className="font-semibold truncate flex-1">{full.subject}</h2>
-              <Button size="sm" variant="outline" onClick={() => copyHtml(full.html)}>
-                <Copy className="w-4 h-4 mr-1" /> Copiar HTML
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => downloadHtml(full.subject, full.html)}>
-                <Download className="w-4 h-4 mr-1" /> Download
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => downloadDocx(full.id)}>
-                <FileText className="w-4 h-4 mr-1" /> Word
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setOpenId(null)}>
+            <div className="p-4 border-b flex items-center justify-between gap-2 flex-wrap">
+              <h2 className="font-semibold truncate flex-1 min-w-40">{full.subject}</h2>
+
+              {!editing && (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => copyHtml(full.html)}>
+                    <Copy className="w-4 h-4 mr-1" /> Copiar HTML
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => downloadHtml(full.subject, full.html)}>
+                    <Download className="w-4 h-4 mr-1" /> Download
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => downloadDocx(full.id)}>
+                    <FileText className="w-4 h-4 mr-1" /> Word
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => downloadPdf(full.subject)}>
+                    <FileDown className="w-4 h-4 mr-1" /> PDF
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={startEditing}>
+                    <Pencil className="w-4 h-4 mr-1" /> Editar
+                  </Button>
+                </>
+              )}
+
+              {editing && (
+                <Button size="sm" disabled={saving} onClick={() => saveEdits(full.id)}>
+                  <Save className="w-4 h-4 mr-1" /> {saving ? "A guardar…" : "Guardar alterações"}
+                </Button>
+              )}
+
+              <Button size="sm" variant="ghost" onClick={closeModal} disabled={editing}>
                 Fechar
               </Button>
             </div>
+
+            {editing && (
+              <div className="px-4 py-2 text-xs font-medium bg-primary/10 text-primary border-b">
+                Modo de edição — clica no texto para alterar
+              </div>
+            )}
+
             <iframe
+              ref={iframeRef}
               title="preview"
               srcDoc={full.html}
               className="flex-1 w-full border-0 rounded-b-lg bg-white"
@@ -144,4 +242,8 @@ function NewslettersPage() {
       )}
     </div>
   );
+}
+
+function safeName(subject: string) {
+  return subject.replace(/[^a-z0-9]+/gi, "-").slice(0, 60);
 }

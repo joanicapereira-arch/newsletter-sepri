@@ -124,6 +124,22 @@ export const getNewsletter = createServerFn({ method: "POST" })
     return row;
   });
 
+export const updateNewsletterHtml = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z.object({ id: z.string().uuid(), html: z.string().min(50) }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
+    const { error } = await admin.from("newsletters").update({ html: data.html }).eq("id", data.id);
+    if (error) {
+      console.error("[updateNewsletterHtml] db error", error);
+      throw new Error("Não foi possível guardar as alterações.");
+    }
+    return { ok: true };
+  });
+
+
+
 export const getNewsletterDocx = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data }) => {

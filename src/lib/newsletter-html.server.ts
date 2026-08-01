@@ -162,10 +162,10 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
         <div style="text-decoration:underline;">Rua 6-1L, Bairro da Boavista, Luanda, Angola</div>
         <div style="margin-top:6px;">www.sepri.pt · comunicacao@sepri.pt</div>
         <div style="margin:18px 0;">
-          <a href="https://www.linkedin.com/company/sepri-group/" target="_blank" rel="noopener" style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;background:${INK};color:#fff;margin:0 4px;font-size:11px;font-weight:bold;text-decoration:none;">in</a>
-          <a href="https://www.instagram.com/sepri_group/" target="_blank" rel="noopener" style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;background:${INK};color:#fff;margin:0 4px;font-size:11px;font-weight:bold;text-decoration:none;">ig</a>
-          <a href="https://www.facebook.com/grupo.sepri" target="_blank" rel="noopener" style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;background:${INK};color:#fff;margin:0 4px;font-size:11px;font-weight:bold;text-decoration:none;">fb</a>
-          <a href="https://www.youtube.com/@seprigroup" target="_blank" rel="noopener" style="display:inline-block;width:28px;height:28px;line-height:28px;border-radius:50%;background:${INK};color:#fff;margin:0 4px;font-size:11px;font-weight:bold;text-decoration:none;">yt</a>
+          ${renderSocialIcon("https://www.linkedin.com/company/sepri-group/", "linkedin", "LinkedIn")}
+          ${renderSocialIcon("https://www.instagram.com/sepri_group/", "instagram", "Instagram")}
+          ${renderSocialIcon("https://www.facebook.com/grupo.sepri", "facebook", "Facebook")}
+          ${renderSocialIcon("https://www.youtube.com/@seprigroup", "youtube", "YouTube")}
         </div>
         <div>Este e-mail foi enviado para {{ contact.EMAIL }}.</div>
         <div style="font-size:11px;color:#8a93a0;margin-top:16px;">${chrome.disclaimerHtml}</div>
@@ -176,6 +176,14 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
 </table>
 </body>
 </html>`;
+}
+
+const SOCIAL_ICON_BASE = "https://sepri-legis-digest.lovable.app/social";
+
+function renderSocialIcon(href: string, slug: string, label: string): string {
+  return `<a href="${esc(href)}" target="_blank" rel="noopener" style="display:inline-block;width:28px;height:28px;border-radius:50%;background:${INK};margin:0 4px;text-align:center;line-height:28px;text-decoration:none;">
+    <img src="${SOCIAL_ICON_BASE}/${slug}.png" width="16" height="16" alt="${esc(label)}" style="vertical-align:middle;" />
+  </a>`;
 }
 
 function renderIntroBlock(paragraphs: string[]): string {
