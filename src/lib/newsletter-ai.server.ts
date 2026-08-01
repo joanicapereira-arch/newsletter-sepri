@@ -255,14 +255,53 @@ function normalizeLooseIntro(
 }
 
 
-/** Vai buscar o texto completo do artigo via Firecrawl. Devolve null em caso de falha (não bloqueia o fluxo). */
+/** Remove ruído de navegação/rodapé (menus, badges de acessibilidade, SSL, WCAG) de uma linha markdown.
+ * Devolve null se a linha for maioritariamente links/imagens (menu, não conteúdo). */
+function cleanMarkdownLine(line: string): string | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+  if (/^!\[[^\]]*\]\([^)]*\)$/.test(trimmed)) return null; // imagem isolada
+  const linkMatches = trimmed.match(/!?\[[^\]]*\]\([^)]*\)/g) ?? [];
+  const linkChars = linkMatches.reduce((sum, m) => sum + m.length, 0);
+  if (linkMatches.length >= 2 && linkChars / trimmed.length > 0.5) return null; // menu/rodapé de links
+  let cleaned = trimmed
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  if (!cleaned) return null;
+  if (cleaned.length < 120 && /acessibilidade|wcag|ssl certificate|conformance|saltar para conte[uú]do/i.test(cleaned)) {
+    return null; // boilerplate de rodapé institucional
+  }
+  return cleaned;
+}
+
+/** Limpa markdown scrapado, removendo menus/rodapés e sintaxe de link, mantendo só o texto do artigo. */
+function cleanArticleMarkdown(md: string): string {
+  return md
+    .split("\n")
+    .map(cleanMarkdownLine)
+    .filter((l): l is string => !!l)
+    .join("\n\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** Vai buscar o texto completo do artigo via Firecrawl, já limpo de menus/rodapés.
+ * Se depois de limpo restar pouco texto (página era essencialmente navegação), devolve null
+ * para o gerador usar apenas o resumo curto em vez de lixo. */
 async function fetchFullArticleText(url: string | null | undefined): Promise<string | null> {
   if (!url) return null;
   try {
     const scraped = await firecrawlScrape(url, 300, 9000);
-    const md = scraped?.markdown?.trim();
-    if (!md || md.length < 100) return null;
-    return md.slice(0, 8000);
+    const rawMd = scraped?.markdown?.trim();
+    if (!rawMd || rawMd.length < 100) return null;
+    const cleaned = cleanArticleMarkdown(rawMd);
+    if (cleaned.length < 150) {
+      console.warn("[newsletter-ai] fetchFullArticleText: conteúdo era maioritariamente navegação/rodapé, a ignorar");
+      return null;
+    }
+    return cleaned.slice(0, 8000);
   } catch (err) {
     console.warn("[newsletter-ai] fetchFullArticleText falhou:", err);
     return null;
@@ -270,8 +309,9 @@ async function fetchFullArticleText(url: string | null | undefined): Promise<str
 }
 
 function fallbackItemContent(d: DetectionInput, fullText?: string | null): NewsletterItemContent {
-  const source = fullText && fullText.length > d.summary.length ? fullText : d.summary;
-  const paragraphs = source
+  const candidate = fullText && fullText.length > d.summary.length ? fullText : d.summary;
+  const source = cleanArticleMarkdown(candidate); // defesa extra: nunca deixar sintaxe markdown passar
+  const paragraphs = (source || d.summary)
     .replace(/^#+\s.*$/gm, "")
     .split(/\n{2,}|\.\s+(?=[A-ZÀ-Ú])/)
     .map((p) => p.trim())
