@@ -149,6 +149,112 @@ function mapAiContent<T extends { resource?: { heading: string; image_url?: stri
   return { ...rest, resource: mapResource(resource) };
 }
 
+/* ---- Normalização tolerante: o modelo nem sempre respeita os nomes do schema ---- */
+
+type Loose = Record<string, any>;
+
+function toStringArray(v: unknown): string[] {
+  if (!v) return [];
+  if (typeof v === "string") return v.trim() ? [v.trim()] : [];
+  if (Array.isArray(v)) {
+    return v
+      .map((x) =>
+        typeof x === "string"
+          ? x.trim()
+          : typeof x === "object" && x
+            ? String((x as Loose).text ?? (x as Loose).content ?? (x as Loose).paragraph ?? "").trim()
+            : "",
+      )
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function normalizeLooseSection(raw: Loose): NewsletterItemContent["sections"][number] {
+  const heading = String(raw.heading ?? raw.title ?? raw.name ?? "").trim();
+  const rawIcon = String(raw.icon ?? "").trim();
+  const emojiMatch = heading.match(/^(\p{Extended_Pictographic}\uFE0F?)\s*/u);
+  const icon = rawIcon || emojiMatch?.[1] || undefined;
+  const lines = [
+    ...toStringArray(raw.paragraphs ?? raw.content ?? raw.paragraph ?? raw.text),
+    ...toStringArray(raw.bullets ?? raw.items ?? raw.points),
+  ];
+  const bullets = lines.filter((l) => l.length < 400 && /^\*\*|:/.test(l));
+  const paragraphs = lines.filter((l) => !bullets.includes(l));
+  return {
+    icon,
+    heading: emojiMatch ? heading.slice(emojiMatch[0].length) : heading,
+    paragraphs: paragraphs.length ? paragraphs : undefined,
+    bullets: bullets.length ? bullets : undefined,
+    subsections: Array.isArray(raw.subsections)
+      ? raw.subsections.map((s: Loose) => ({
+          heading: String(s.heading ?? s.title ?? "").trim(),
+          paragraph: toStringArray(s.paragraph ?? s.content)[0],
+          bullets: toStringArray(s.bullets ?? s.items),
+        }))
+      : undefined,
+  };
+}
+
+function normalizeLooseItem(raw: Loose): NewsletterItemContent {
+  const sections = (Array.isArray(raw.sections) ? raw.sections : [])
+    .map((s: Loose) => normalizeLooseSection(s))
+    .filter((s) => s.heading || s.paragraphs?.length || s.bullets?.length);
+
+  const g: Loose | undefined = raw.guidelines ?? raw.orientacoes ?? raw.recommendations;
+  const guidelineItems = g ? toStringArray(g.items ?? g.steps ?? g.bullets ?? g) : [];
+
+  const ctaRaw = raw.cta;
+  const cta =
+    typeof ctaRaw === "string"
+      ? { label: ctaRaw }
+      : ctaRaw && typeof ctaRaw === "object"
+        ? { label: String((ctaRaw as Loose).label ?? (ctaRaw as Loose).text ?? ""), url: (ctaRaw as Loose).url || undefined }
+        : undefined;
+
+  const resourceRaw: Loose | undefined = raw.resource;
+
+  return {
+    overtitle: raw.overtitle ? String(raw.overtitle) : undefined,
+    title: String(raw.title ?? raw.heading ?? "").trim(),
+    subtitle: raw.subtitle ? String(raw.subtitle) : undefined,
+    intro_paragraphs: toStringArray(raw.intro_paragraphs ?? raw.intro ?? raw.lead),
+    sections,
+    guidelines: guidelineItems.length
+      ? {
+          heading: String(g?.heading ?? g?.title ?? "Recomendações práticas SEPRI"),
+          intro: g?.intro ? String(g.intro) : undefined,
+          items: guidelineItems,
+        }
+      : undefined,
+    resource: resourceRaw
+      ? mapResource({
+          heading: String(resourceRaw.heading ?? resourceRaw.title ?? ""),
+          image_url: resourceRaw.image_url,
+          link_url: resourceRaw.link_url ?? resourceRaw.url,
+        })
+      : undefined,
+    closing_paragraph: toStringArray(raw.closing_paragraph ?? raw.footer ?? raw.closing)[0],
+    cta: cta?.label ? cta : undefined,
+  } as NewsletterItemContent;
+}
+
+function normalizeLooseIntro(
+  raw: unknown,
+  items: DetectionInput[],
+): NewsletterDocument["composite_intro"] | undefined {
+  if (items.length <= 1) return undefined;
+  if (!raw) return { title: "Atualizações SEPRI", lead: "Resumo das últimas atualizações relevantes." };
+  if (typeof raw === "string") return { title: "Atualizações SEPRI", lead: raw };
+  const o = raw as Loose;
+  return {
+    overtitle: o.overtitle ? String(o.overtitle) : undefined,
+    title: String(o.title ?? "Atualizações SEPRI"),
+    lead: String(o.lead ?? o.text ?? ""),
+  };
+}
+
+
 /** Vai buscar o texto completo do artigo via Firecrawl. Devolve null em caso de falha (não bloqueia o fluxo). */
 async function fetchFullArticleText(url: string | null | undefined): Promise<string | null> {
   if (!url) return null;
