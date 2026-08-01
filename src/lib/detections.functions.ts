@@ -97,20 +97,72 @@ export const generateNewsletterFromSelection = createServerFn({ method: "POST" }
     return { ok: true, count: ordered.length };
   });
 
-export const listNewsletters = createServerFn({ method: "GET" })
-  .handler(async () => {
+export const listNewsletters = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z.object({ trashed: z.boolean().default(false) }).parse(d ?? {}),
+  )
+  .handler(async ({ data }) => {
     const admin = await getAdmin();
-    const { data, error } = await admin
+    let q = admin
       .from("newsletters")
-      .select("id,detection_id,subject,generated_at,detections(title,source_name,source_url)")
+      .select("id,detection_id,subject,generated_at,deleted_at,detections(title,source_name,source_url)")
       .order("generated_at", { ascending: false })
       .limit(100);
+    q = data.trashed ? q.not("deleted_at", "is", null) : q.is("deleted_at", null);
+    const { data: rows, error } = await q;
     if (error) {
       console.error("[listNewsletters] db error", error);
       throw new Error("Não foi possível carregar as newsletters.");
     }
-    return data ?? [];
+    return rows ?? [];
   });
+
+export const trashNewsletter = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
+    const { error } = await admin
+      .from("newsletters")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", data.id);
+    if (error) {
+      console.error("[trashNewsletter] db error", error);
+      throw new Error("Não foi possível mover a newsletter para o Lixo.");
+    }
+    return { ok: true };
+  });
+
+export const restoreNewsletter = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
+    const { error } = await admin
+      .from("newsletters")
+      .update({ deleted_at: null })
+      .eq("id", data.id);
+    if (error) {
+      console.error("[restoreNewsletter] db error", error);
+      throw new Error("Não foi possível restaurar a newsletter.");
+    }
+    return { ok: true };
+  });
+
+export const deleteNewsletterPermanently = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data }) => {
+    const admin = await getAdmin();
+    const { error } = await admin
+      .from("newsletters")
+      .delete()
+      .eq("id", data.id)
+      .not("deleted_at", "is", null);
+    if (error) {
+      console.error("[deleteNewsletterPermanently] db error", error);
+      throw new Error("Não foi possível eliminar a newsletter.");
+    }
+    return { ok: true };
+  });
+
 
 export const getNewsletter = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
