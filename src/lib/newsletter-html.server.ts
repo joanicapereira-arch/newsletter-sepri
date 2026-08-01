@@ -184,6 +184,10 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
         </table>
         <div>Este e-mail foi enviado para {{ contact.EMAIL }}.</div>
         <div style="font-size:11px;color:#8a93a0;margin-top:16px;">${chrome.disclaimerHtml}</div>
+        <div style="font-size:11px;color:#8a93a0;margin-top:16px;text-align:left;line-height:1.5;">
+          <strong style="display:block;color:#5a6472;margin-bottom:4px;">Porque recebeu este e-mail?</strong>
+          A presente comunicação é feita na prossecução do legítimo interesse da SEPRI MT Lda, em enviar informação sobre as suas atividades e serviços, sem com isso afetar quaisquer interesses ou direitos e liberdades fundamentais, tendo o destinatário o direito de se opor a qualquer momento ao tratamento dos seus dados pessoais cancelando a sua subscrição no link abaixo ou enviando um pedido para dpo@sepri.pt. Para mais informações consulte a nossa política de privacidade.
+        </div>
         <a href="{{ unsubscribe }}" style="display:inline-block;margin-top:10px;text-decoration:underline;color:#5a6472;font-size:12px;">Cancelar subscrição</a>
       </td></tr>
     </table>
