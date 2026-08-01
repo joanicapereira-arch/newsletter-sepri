@@ -112,6 +112,16 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(doc.subject)}</title>
+<style>
+  @media print {
+    html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #ffffff !important; }
+    body { padding: 0 !important; }
+    body > table[role="presentation"] { background: #ffffff !important; }
+    h1, h2, h3 { page-break-after: avoid; break-after: avoid; }
+    li { page-break-inside: avoid; break-inside: avoid; }
+  }
+</style>
+
 </head>
 <body style="margin:0;padding:40px 0;background:${PAGE_BG};font-family:Arial,Helvetica,sans-serif;color:${INK};">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAGE_BG};">
@@ -195,13 +205,11 @@ function renderSocialIcon(href: string, slug: string, label: string): string {
 
 
 function renderHeroTag(tag: string): string {
-  // Pílula em <div> com altura/line-height fixos e raio ligeiramente inferior a
-  // metade da altura: com raio == metade da altura o html2canvas desenha
-  // "pontas"/setas nos cantos em vez de um arredondado limpo.
   return `<div style="margin:0 0 10px;">
-    <span style="display:inline-block;height:26px;line-height:26px;padding:0 14px;background:${TURQ};color:${NAVY};font-size:12px;font-weight:700;letter-spacing:0.5px;border-radius:10px;text-align:center;text-transform:uppercase;white-space:nowrap;">${esc(tag)}</span>
+    <span style="display:inline-block;height:26px;line-height:26px;padding:0 14px;background:${TURQ};color:${NAVY};font-size:12px;font-weight:700;letter-spacing:0.5px;border-radius:13px;text-align:center;text-transform:uppercase;white-space:nowrap;">${esc(tag)}</span>
   </div>`;
 }
+
 
 
 function renderIntroBlock(paragraphs: string[]): string {
