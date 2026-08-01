@@ -207,7 +207,7 @@ function NewslettersPage() {
           onClick={() => !editing && closeModal()}
         >
           <div
-            className="bg-card rounded-lg w-full max-w-4xl max-h-[90vh] flex flex-col"
+            className="bg-card rounded-lg w-full max-w-5xl h-[95vh] max-h-[95vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-4 border-b flex items-center justify-between gap-2 flex-wrap">
@@ -245,10 +245,80 @@ function NewslettersPage() {
             </div>
 
             {editing && (
-              <div className="px-4 py-2 text-xs font-medium bg-primary/10 text-primary border-b">
-                Modo de edição — clica no texto para alterar
-              </div>
+              <>
+                <div
+                  className="flex flex-wrap items-center gap-1 px-3 py-2 border-b bg-muted/40"
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  <Button size="sm" variant="ghost" aria-label="Negrito" onClick={() => exec("bold")}>
+                    <Bold className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" aria-label="Itálico" onClick={() => exec("italic")}>
+                    <Italic className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" aria-label="Sublinhado" onClick={() => exec("underline")}>
+                    <Underline className="w-4 h-4" />
+                  </Button>
+                  <span className="w-px h-6 bg-border mx-1" />
+                  <Button size="sm" variant="ghost" aria-label="Alinhar à esquerda" onClick={() => exec("justifyLeft")}>
+                    <AlignLeft className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" aria-label="Centrar" onClick={() => exec("justifyCenter")}>
+                    <AlignCenter className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" aria-label="Alinhar à direita" onClick={() => exec("justifyRight")}>
+                    <AlignRight className="w-4 h-4" />
+                  </Button>
+                  <span className="w-px h-6 bg-border mx-1" />
+                  <label className="flex items-center gap-1 text-xs">
+                    Cor
+                    <input
+                      type="color"
+                      aria-label="Cor do texto"
+                      defaultValue="#2b2b2b"
+                      className="h-7 w-9 rounded border bg-background p-0"
+                      onChange={(e) => exec("foreColor", e.target.value)}
+                    />
+                  </label>
+                  <select
+                    aria-label="Tipo de letra"
+                    defaultValue=""
+                    className="h-8 rounded border bg-background text-xs px-2"
+                    onChange={(e) => e.target.value && exec("fontName", e.target.value)}
+                  >
+                    <option value="">Tipo de letra</option>
+                    <option value="Arial">Arial</option>
+                    <option value="Helvetica">Helvetica</option>
+                    <option value="Georgia">Georgia</option>
+                    <option value="Times New Roman">Times New Roman</option>
+                    <option value="Verdana">Verdana</option>
+                  </select>
+                  <select
+                    aria-label="Tamanho de letra"
+                    defaultValue=""
+                    className="h-8 rounded border bg-background text-xs px-2"
+                    onChange={(e) => e.target.value && exec("fontSize", e.target.value)}
+                  >
+                    <option value="">Tamanho</option>
+                    <option value="1">Pequeno</option>
+                    <option value="2">Normal</option>
+                    <option value="3">Médio</option>
+                    <option value="4">Grande</option>
+                    <option value="5">Maior</option>
+                    <option value="6">Enorme</option>
+                    <option value="7">Máximo</option>
+                  </select>
+                  <span className="w-px h-6 bg-border mx-1" />
+                  <Button size="sm" variant="ghost" aria-label="Inserir imagem" onClick={insertImage}>
+                    <ImageIcon className="w-4 h-4 mr-1" /> Imagem
+                  </Button>
+                </div>
+                <div className="px-4 py-2 text-xs font-medium bg-primary/10 text-primary border-b">
+                  Modo de edição — seleciona o texto e usa a barra acima. Clica numa imagem para a redimensionar.
+                </div>
+              </>
             )}
+
 
             <iframe
               ref={iframeRef}
