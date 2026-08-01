@@ -48,7 +48,13 @@ type Category = "pending" | "informativo" | "prioritario" | "rejected";
 function InboxPage() {
   const [status, setStatus] = useState<Status>("pending");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showManual, setShowManual] = useState(false);
+  const [manualSourceId, setManualSourceId] = useState("");
+  const [manualUrl, setManualUrl] = useState("");
   const qc = useQueryClient();
+
+  const { data: sources } = useQuery({ queryKey: ["sources"], queryFn: () => listSources() });
+
 
   const { data: detections, isLoading } = useQuery({
     queryKey: ["detections", status],
