@@ -5,8 +5,8 @@ import { toast } from "sonner";
 import {
   listNewsletters,
   getNewsletter,
-  getNewsletterDocx,
   updateNewsletterHtml,
+  uploadNewsletterImage,
 } from "@/lib/detections.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,6 @@ import {
   Copy,
   Download,
   Eye,
-  FileText,
   FileDown,
   Pencil,
   Save,
@@ -39,6 +38,8 @@ function NewslettersPage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const savedRangeRef = useRef<Range | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["newsletters"],
@@ -70,27 +71,11 @@ function NewslettersPage() {
     a.click();
   }
 
-  async function downloadDocx(id: string) {
-    toast.info("A preparar o Word...");
-    try {
-      const { subject, base64 } = await getNewsletterDocx({ data: { id } });
-      const byteChars = atob(base64);
-      const byteNumbers = new Array(byteChars.length);
-      for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
-      const blob = new Blob([new Uint8Array(byteNumbers)], { type: "application/msword" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `${safeName(subject)}.doc`;
-      a.click();
-    } catch (err) {
-      console.error(err);
-      toast.error("Não foi possível gerar o Word.");
-    }
-  }
-
   async function downloadPdf(subject: string) {
-    const body = iframeRef.current?.contentDocument?.body;
-    if (!body) {
+    const doc = iframeRef.current?.contentDocument;
+    const target =
+      (doc?.querySelector("body > table td > table") as HTMLElement | null) ?? doc?.body ?? null;
+    if (!target) {
       toast.error("Pré-visualização ainda não está pronta.");
       return;
     }
@@ -110,12 +95,21 @@ function NewslettersPage() {
           margin: [24, 0, 24, 0],
           filename: `${safeName(subject)}.pdf`,
           image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            onclone: (clonedDoc: Document) => {
+              const style = clonedDoc.createElement("style");
+              style.textContent =
+                "li{list-style:none !important;position:relative;padding-left:1.1em;} li:before{content:'\\2022';position:absolute;left:0;}";
+              clonedDoc.head.appendChild(style);
+            },
+          },
           jsPDF: { unit: "pt", format: "a4", orientation: "portrait" },
           pagebreak: { mode: ["css", "avoid-all", "legacy"] },
         } as never)
 
-        .from(body)
+        .from(target)
         .save();
 
 
@@ -138,6 +132,22 @@ function NewslettersPage() {
     setEditing(true);
   }
 
+  function saveSelection() {
+    const doc = iframeRef.current?.contentDocument;
+    const sel = doc?.getSelection();
+    if (sel && sel.rangeCount > 0) savedRangeRef.current = sel.getRangeAt(0).cloneRange();
+  }
+
+  function restoreSelection() {
+    const doc = iframeRef.current?.contentDocument;
+    const sel = doc?.getSelection();
+    const range = savedRangeRef.current;
+    if (sel && range) {
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  }
+
   function exec(command: string, value?: string) {
     const win = iframeRef.current?.contentWindow;
     const doc = iframeRef.current?.contentDocument;
@@ -146,10 +156,30 @@ function NewslettersPage() {
     doc.execCommand(command, false, value);
   }
 
-  function insertImage() {
-    const url = window.prompt("URL da imagem (https://...)");
-    if (!url) return;
-    exec("insertImage", url);
+  function execWithSavedSelection(command: string, value?: string) {
+    restoreSelection();
+    exec(command, value);
+  }
+
+  async function handleImageFile(file: File) {
+    const toastId = toast.loading("A enviar imagem...");
+    try {
+      const buf = new Uint8Array(await file.arrayBuffer());
+      let binary = "";
+      for (let i = 0; i < buf.length; i++) binary += String.fromCharCode(buf[i]);
+      const { url } = await uploadNewsletterImage({
+        data: {
+          filename: file.name,
+          content_type: file.type || "image/png",
+          base64: btoa(binary),
+        },
+      });
+      execWithSavedSelection("insertImage", url);
+      toast.success("Imagem inserida", { id: toastId });
+    } catch (err) {
+      console.error(err);
+      toast.error("Não foi possível enviar a imagem.", { id: toastId });
+    }
   }
 
 
@@ -236,9 +266,6 @@ function NewslettersPage() {
                   <Button size="sm" variant="outline" onClick={() => downloadHtml(full.subject, full.html)}>
                     <Download className="w-4 h-4 mr-1" /> Download
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => downloadDocx(full.id)}>
-                    <FileText className="w-4 h-4 mr-1" /> Word
-                  </Button>
                   <Button size="sm" variant="outline" onClick={() => downloadPdf(full.subject)}>
                     <FileDown className="w-4 h-4 mr-1" /> PDF
                   </Button>
@@ -263,7 +290,12 @@ function NewslettersPage() {
               <>
                 <div
                   className="flex flex-wrap items-center gap-1 px-3 py-2 border-b bg-muted/40"
-                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseDown={(e) => {
+                    const el = e.target as HTMLElement;
+                    if (el.closest("select") || el.closest("input")) return;
+                    saveSelection();
+                    e.preventDefault();
+                  }}
                 >
                   <Button size="sm" variant="ghost" aria-label="Negrito" onClick={() => exec("bold")}>
                     <Bold className="w-4 h-4" />
@@ -299,7 +331,12 @@ function NewslettersPage() {
                     aria-label="Tipo de letra"
                     defaultValue=""
                     className="h-8 rounded border bg-background text-xs px-2"
-                    onChange={(e) => e.target.value && exec("fontName", e.target.value)}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      saveSelection();
+                    }}
+                    onFocus={saveSelection}
+                    onChange={(e) => e.target.value && execWithSavedSelection("fontName", e.target.value)}
                   >
                     <option value="">Tipo de letra</option>
                     <option value="Arial">Arial</option>
@@ -312,7 +349,12 @@ function NewslettersPage() {
                     aria-label="Tamanho de letra"
                     defaultValue=""
                     className="h-8 rounded border bg-background text-xs px-2"
-                    onChange={(e) => e.target.value && exec("fontSize", e.target.value)}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      saveSelection();
+                    }}
+                    onFocus={saveSelection}
+                    onChange={(e) => e.target.value && execWithSavedSelection("fontSize", e.target.value)}
                   >
                     <option value="">Tamanho</option>
                     <option value="1">Pequeno</option>
@@ -324,9 +366,25 @@ function NewslettersPage() {
                     <option value="7">Máximo</option>
                   </select>
                   <span className="w-px h-6 bg-border mx-1" />
-                  <Button size="sm" variant="ghost" aria-label="Inserir imagem" onClick={insertImage}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    aria-label="Inserir imagem"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
                     <ImageIcon className="w-4 h-4 mr-1" /> Imagem
                   </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (file) void handleImageFile(file);
+                    }}
+                  />
                 </div>
                 <div className="px-4 py-2 text-xs font-medium bg-primary/10 text-primary border-b">
                   Modo de edição — seleciona o texto e usa a barra acima. Para trocar uma imagem, seleciona-a e clica em “Imagem”.
