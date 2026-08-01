@@ -1,3 +1,5 @@
+import { SOCIAL_ICON_DATA_URIS } from "./social-icons.data";
+
 // SEPRI newsletter renderer — matches the reference template exactly:
 // (1) centered logo, (2) navy hero with icon + turquoise tag + white H1,
 // (3) turquoise intro block with white bold lead + supporting text,
