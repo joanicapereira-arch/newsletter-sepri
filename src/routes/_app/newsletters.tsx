@@ -235,14 +235,21 @@ function NewslettersPage() {
                   <Button size="sm" variant="outline" onClick={() => downloadHtml(full.subject, full.html)}>
                     <Download className="w-4 h-4 mr-1" /> Download
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => downloadPdf(full.subject)}>
-                    <FileDown className="w-4 h-4 mr-1" /> PDF
-                  </Button>
+                  <div className="flex flex-col items-center">
+                    <Button size="sm" variant="outline" onClick={() => downloadPdf(full.html)}>
+                      <FileDown className="w-4 h-4 mr-1" /> PDF
+                    </Button>
+                    <span className="text-[10px] text-muted-foreground mt-1 max-w-52 text-center leading-tight">
+                      Na janela de impressão, escolhe “Guardar como PDF” como destino e ativa
+                      “Gráficos de fundo” para as cores aparecerem.
+                    </span>
+                  </div>
                   <Button size="sm" variant="outline" onClick={startEditing}>
                     <Pencil className="w-4 h-4 mr-1" /> Editar
                   </Button>
                 </>
               )}
+
 
               {editing && (
                 <Button size="sm" disabled={saving} onClick={() => saveEdits(full.id)}>
