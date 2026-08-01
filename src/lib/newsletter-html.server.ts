@@ -195,13 +195,14 @@ function renderSocialIcon(href: string, slug: string, label: string): string {
 
 
 function renderHeroTag(tag: string): string {
-  // Tabela com altura/padding fixos: o html2canvas desenha o border-radius
-  // corretamente em células com dimensões explícitas (inline-block automático
-  // produzia "pontas" no PDF).
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 10px;">
-    <tr><td height="24" align="center" valign="middle" style="height:24px;line-height:24px;background:${TURQ};color:${NAVY};font-size:12px;font-weight:700;letter-spacing:0.5px;padding:0 14px;border-radius:12px;text-align:center;vertical-align:middle;text-transform:uppercase;white-space:nowrap;">${esc(tag)}</td></tr>
-  </table>`;
+  // Pílula em <div> com altura/line-height fixos e raio ligeiramente inferior a
+  // metade da altura: com raio == metade da altura o html2canvas desenha
+  // "pontas"/setas nos cantos em vez de um arredondado limpo.
+  return `<div style="margin:0 0 10px;">
+    <span style="display:inline-block;height:26px;line-height:26px;padding:0 14px;background:${TURQ};color:${NAVY};font-size:12px;font-weight:700;letter-spacing:0.5px;border-radius:10px;text-align:center;text-transform:uppercase;white-space:nowrap;">${esc(tag)}</span>
+  </div>`;
 }
+
 
 function renderIntroBlock(paragraphs: string[]): string {
   if (!paragraphs.length) return "";
