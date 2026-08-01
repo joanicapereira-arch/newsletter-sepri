@@ -201,13 +201,11 @@ function renderSocialIcon(href: string, slug: string, label: string): string {
 
 
 function renderHeroTag(tag: string): string {
-  // Pílula em <div> com altura/line-height fixos e raio ligeiramente inferior a
-  // metade da altura: com raio == metade da altura o html2canvas desenha
-  // "pontas"/setas nos cantos em vez de um arredondado limpo.
   return `<div style="margin:0 0 10px;">
-    <span style="display:inline-block;height:26px;line-height:26px;padding:0 14px;background:${TURQ};color:${NAVY};font-size:12px;font-weight:700;letter-spacing:0.5px;border-radius:10px;text-align:center;text-transform:uppercase;white-space:nowrap;">${esc(tag)}</span>
+    <span style="display:inline-block;height:26px;line-height:26px;padding:0 14px;background:${TURQ};color:${NAVY};font-size:12px;font-weight:700;letter-spacing:0.5px;border-radius:13px;text-align:center;text-transform:uppercase;white-space:nowrap;">${esc(tag)}</span>
   </div>`;
 }
+
 
 
 function renderIntroBlock(paragraphs: string[]): string {
