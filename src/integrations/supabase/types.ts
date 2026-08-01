@@ -125,6 +125,7 @@ export type Database = {
       }
       newsletters: {
         Row: {
+          deleted_at: string | null
           detection_id: string | null
           detection_ids: string[]
           generated_at: string
@@ -133,6 +134,7 @@ export type Database = {
           subject: string
         }
         Insert: {
+          deleted_at?: string | null
           detection_id?: string | null
           detection_ids?: string[]
           generated_at?: string
@@ -141,6 +143,7 @@ export type Database = {
           subject: string
         }
         Update: {
+          deleted_at?: string | null
           detection_id?: string | null
           detection_ids?: string[]
           generated_at?: string
