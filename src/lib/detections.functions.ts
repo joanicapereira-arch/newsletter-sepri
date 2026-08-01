@@ -138,25 +138,32 @@ export const updateNewsletterHtml = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-
-
-export const getNewsletterDocx = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+export const uploadNewsletterImage = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        filename: z.string().min(1).max(200),
+        content_type: z.string().min(3).max(100),
+        base64: z.string().min(10),
+      })
+      .parse(d),
+  )
   .handler(async ({ data }) => {
     const admin = await getAdmin();
-    const { data: row, error } = await admin
-      .from("newsletters")
-      .select("subject,html")
-      .eq("id", data.id)
-      .single();
-    if (error || !row) {
-      console.error("[getNewsletterDocx] db error", error);
-      throw new Error("Não foi possível carregar a newsletter.");
+    const bytes = Uint8Array.from(atob(data.base64), (c) => c.charCodeAt(0));
+    const ext = (data.filename.split(".").pop() ?? "png").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const path = `${crypto.randomUUID()}.${ext || "png"}`;
+    const { error } = await admin.storage
+      .from("newsletter-images")
+      .upload(path, bytes, { contentType: data.content_type, upsert: false });
+    if (error) {
+      console.error("[uploadNewsletterImage] storage error", error);
+      throw new Error("Não foi possível enviar a imagem.");
     }
-    const { renderNewsletterDocx } = await import("./newsletter-docx.server");
-    const buffer = await renderNewsletterDocx(row.html, row.subject);
-    return { subject: row.subject, base64: buffer.toString("base64") };
+    const { data: pub } = admin.storage.from("newsletter-images").getPublicUrl(path);
+    return { url: pub.publicUrl };
   });
+
 
 
 
