@@ -76,6 +76,20 @@ function SourcesPage() {
       </div>
 
       <div className="space-y-3">
+        {draft && !draft.id && (
+          <Card>
+            <CardContent className="pt-6">
+              <Editor
+                draft={draft}
+                onChange={setDraft}
+                onSave={() => save.mutate(draft)}
+                onCancel={() => setDraft(null)}
+                pending={save.isPending}
+              />
+            </CardContent>
+          </Card>
+        )}
+
         {data?.map((s) => (
           <Card key={s.id}>
             <CardContent className="pt-6">
@@ -141,20 +155,6 @@ function SourcesPage() {
             </CardContent>
           </Card>
         ))}
-
-        {draft && !draft.id && (
-          <Card>
-            <CardContent className="pt-6">
-              <Editor
-                draft={draft}
-                onChange={setDraft}
-                onSave={() => save.mutate(draft)}
-                onCancel={() => setDraft(null)}
-                pending={save.isPending}
-              />
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   );
