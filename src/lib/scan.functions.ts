@@ -33,13 +33,18 @@ function renderExamples(ex: LearningExamples): string {
   return out;
 }
 
-async function scanOneSource(source: SourceRow, knownHashes: Set<string>, examples: LearningExamples) {
+async function scanOneSource(
+  source: SourceRow,
+  knownHashes: Set<string>,
+  examples: LearningExamples,
+  windowDays: number,
+) {
   const deep = await firecrawlDeepScrape(source.url, { maxPages: 1, perPageChars: 2500 });
   const content = deep.markdown.slice(0, 14000);
   if (!content) return { created: 0, dropped: [] as string[], error: null as string | null };
 
   const today = new Date();
-  const cutoff = new Date(today.getTime() - 90 * 86400_000);
+  const cutoff = new Date(today.getTime() - windowDays * 86400_000);
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
 
   const output = await callAiStructured<{
@@ -78,7 +83,7 @@ medicina do trabalho, segurança no trabalho (SST), riscos psicossociais, autopr
 legionella, formação obrigatória, Lei 102/2009, Código do Trabalho, exames a trabalhadores expostos,
 campanhas EU-OSHA, alterações climáticas e trabalho. Para a Ordem dos Psicólogos, APENAS Psicologia do Trabalho.
 Ignora notícias institucionais genéricas, eventos sem impacto técnico, e tudo que seja off-topic.
-JANELA TEMPORAL: considera APENAS itens publicados entre ${fmt(cutoff)} e ${fmt(today)} (últimos 90 dias). Se a data não estiver visível mas o contexto indicar que é recente (ex: ainda em vigor, agenda futura), inclui; se claramente for antigo, ignora.
+JANELA TEMPORAL: considera APENAS itens publicados entre ${fmt(cutoff)} e ${fmt(today)} (últimos ${windowDays} dias). Se a data não estiver visível mas o contexto indicar que é recente (ex: ainda em vigor, agenda futura), inclui; se claramente for antigo, ignora.
 Devolve até 8 itens. Se não houver nada relevante, devolve items: [].
 published_at: data ISO (YYYY-MM-DD) se conseguires inferir, senão null.
 relevance_score: 0-100 (100 = altamente crítico).
@@ -100,7 +105,7 @@ Conteúdo (markdown, várias páginas + URLs candidatas):
 ${content}
 ---
 
-Extrai novidades relevantes dos últimos 90 dias, cada uma com a sua URL específica.`,
+Extrai novidades relevantes dos últimos ${windowDays} dias, cada uma com a sua URL específica.`,
   });
 
   const rootNorm = source.url.replace(/\/$/, "");
@@ -235,10 +240,11 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
 
   const { data: config } = await admin
     .from("app_config")
-    .select("alert_email")
+    .select("alert_email, scan_window_days")
     .eq("id", 1)
     .single();
   const alertEmail = config?.alert_email ?? "joanicapereira@gmail.com";
+  const windowDays = config?.scan_window_days ?? 90;
 
   const [{ data: approvedRows }, { data: rejectedRows }] = await Promise.all([
     admin
@@ -264,7 +270,7 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
   let scanned = 0;
   const results = await mapWithConcurrency((sources ?? []) as SourceRow[], SOURCE_CONCURRENCY, async (src) => {
     try {
-      const res = await scanOneSource(src, knownHashes, examples);
+      const res = await scanOneSource(src, knownHashes, examples, windowDays);
       return { ok: true as const, created: res.created };
     } catch (e) {
       return { ok: false as const, source: src.name, error: String((e as Error).message ?? e) };

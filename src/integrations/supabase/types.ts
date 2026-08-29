@@ -20,6 +20,7 @@ export type Database = {
           disclaimer_html: string
           id: number
           logo_url: string
+          scan_window_days: number
           updated_at: string
         }
         Insert: {
@@ -27,6 +28,7 @@ export type Database = {
           disclaimer_html?: string
           id?: number
           logo_url?: string
+          scan_window_days?: number
           updated_at?: string
         }
         Update: {
@@ -34,6 +36,7 @@ export type Database = {
           disclaimer_html?: string
           id?: number
           logo_url?: string
+          scan_window_days?: number
           updated_at?: string
         }
         Relationships: []

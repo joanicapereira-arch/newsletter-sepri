@@ -20,10 +20,16 @@ function ConfigPage() {
   const qc = useQueryClient();
   const { data: cfg } = useQuery({ queryKey: ["config"], queryFn: () => getConfig() });
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => checkIsAdmin() });
-  const [form, setForm] = useState({ logo_url: "", disclaimer_html: "", alert_email: "" });
+  const [form, setForm] = useState({ logo_url: "", disclaimer_html: "", alert_email: "", scan_window_days: 90 });
 
   useEffect(() => {
-    if (cfg) setForm({ logo_url: cfg.logo_url, disclaimer_html: cfg.disclaimer_html, alert_email: cfg.alert_email });
+    if (cfg)
+      setForm({
+        logo_url: cfg.logo_url,
+        disclaimer_html: cfg.disclaimer_html,
+        alert_email: cfg.alert_email,
+        scan_window_days: cfg.scan_window_days ?? 90,
+      });
   }, [cfg]);
 
   const save = useMutation({
@@ -104,6 +110,35 @@ function ConfigPage() {
             esperar por uma deteção real. Se falhar, a mensagem de erro indica exatamente o que
             falta configurar (ex: RESEND_API_KEY por definir).
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Monitorização</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label>Período de pesquisa (dias)</Label>
+            <Input
+              type="number"
+              min={1}
+              max={365}
+              value={form.scan_window_days}
+              onChange={(e) =>
+                setForm({ ...form, scan_window_days: Math.max(1, Math.min(365, Number(e.target.value) || 1)) })
+              }
+              className="max-w-[140px]"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Cada scan só considera novidades publicadas dentro deste número de dias (por
+              defeito 90). Reduz para focar só em conteúdo mais recente, ou aumenta se quiseres
+              apanhar novidades mais antigas que ainda não foram detetadas.
+            </p>
+          </div>
+          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+            Guardar
+          </Button>
         </CardContent>
       </Card>
 

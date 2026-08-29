@@ -55,6 +55,7 @@ const ConfigInput = z.object({
   logo_url: z.string().url(),
   disclaimer_html: z.string(),
   alert_email: z.string().email(),
+  scan_window_days: z.coerce.number().int().min(1).max(365),
 });
 
 export const updateConfig = createServerFn({ method: "POST" })
