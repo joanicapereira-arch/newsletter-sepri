@@ -89,7 +89,7 @@ async function handle(action: "approve" | "reject", token: string) {
   return new Response(
     page(
       "Aprovada ✓",
-      `<p>A newsletter para <em>"${escapeHtml(det.title)}"</em> foi gerada e está disponível no dashboard, pronta para copiar para Brevo.</p>`,
+      `<p>A newsletter para <em>"${escapeHtml(det.title)}"</em> foi gerada e está disponível no dashboard, pronta para copiar para a plataforma de envio.</p>`,
       "#0f5e8f",
     ),
     { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } },

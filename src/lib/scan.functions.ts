@@ -1,10 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { generateText, Output } from "ai";
 import { z } from "zod";
-import { createLovableAi, requireLovableApiKey } from "./ai-gateway.server";
-import { firecrawlDeepScrape, resolveUrlCandidatesForTitle, verifyArticleUrl } from "./firecrawl.server";
+import { createClaudeAi, requireAnthropicApiKey, FAST_MODEL } from "./ai-provider.server";
+import { firecrawlDeepScrape, resolveUrlCandidatesForTitle, verifyArticleUrl } from "./web-scraper.server";
 
-const MODEL = "google/gemini-3-flash-preview";
+const MODEL = FAST_MODEL;
 const SOURCE_CONCURRENCY = 3;
 
 interface SourceRow {
@@ -40,8 +40,8 @@ async function scanOneSource(source: SourceRow, knownHashes: Set<string>, exampl
   const content = deep.markdown.slice(0, 14000);
   if (!content) return { created: 0, dropped: [] as string[], error: null as string | null };
 
-  const apiKey = requireLovableApiKey();
-  const ai = createLovableAi(apiKey);
+  const apiKey = requireAnthropicApiKey();
+  const ai = createClaudeAi(apiKey);
 
   const today = new Date();
   const cutoff = new Date(today.getTime() - 90 * 86400_000);
@@ -127,7 +127,7 @@ Extrai novidades relevantes dos últimos 90 dias, cada uma com a sua URL especí
     items.map(async (item) => {
       if (item.published_at || !item.source_url) return;
       try {
-        const { firecrawlScrape } = await import("./firecrawl.server");
+        const { firecrawlScrape } = await import("./web-scraper.server");
         const page = await firecrawlScrape(item.source_url, 150, 6000);
         const md = (page?.markdown ?? "").slice(0, 6000);
         if (!md) return;
@@ -315,15 +315,6 @@ async function sendScanSummaryEmail(
     triggeredBy: "cron" | "manual";
   },
 ): Promise<EmailResult> {
-  const lovableKey = process.env.LOVABLE_API_KEY;
-  const brevoKey = process.env.BREVO_API_KEY;
-  if (!lovableKey || !brevoKey) {
-    const reason = !brevoKey
-      ? "Conector Brevo não está ligado (BREVO_API_KEY em falta nas secrets do Lovable Cloud)."
-      : "LOVABLE_API_KEY em falta.";
-    console.warn("[scan-summary] Email não enviado —", reason, { to, scanned: data.scanned, created: data.created });
-    return { ok: false, reason };
-  }
   const { buildApprovalUrls } = await import("./tokens.server");
   const today = new Date().toLocaleDateString("pt-PT", { day: "2-digit", month: "long", year: "numeric" });
   const inboxUrl = `${data.origin}/inbox`;
@@ -368,31 +359,16 @@ async function sendScanSummaryEmail(
     <p style="margin:16px 0 0;font-size:11px;color:#9ca3af;">Aprovar/Rejeitar aciona o registo diretamente — tokens válidos por 14 dias.</p>
   </div>`;
 
-  try {
-    const r = await fetch("https://connector-gateway.lovable.dev/brevo/smtp/email", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": brevoKey,
-      },
-      body: JSON.stringify({
-        sender: { name: "SEPRI Newsletter Bot", email: "no-reply@sepri.pt" },
-        to: [{ email: to }],
-        subject: `[SEPRI] Scan ${kind} — ${data.created} nova(s) deteção(ões)`,
-        htmlContent: html,
-      }),
-    });
-    if (!r.ok) {
-      const t = await r.text();
-      console.error("Brevo summary send failed", r.status, t);
-      return { ok: false, reason: `Brevo devolveu erro ${r.status}: ${t.slice(0, 200)}` };
-    }
-    return { ok: true };
-  } catch (e) {
-    console.error("Brevo summary send error", e);
-    return { ok: false, reason: String((e as Error).message ?? e) };
+  const { sendEmail } = await import("./email.server");
+  const result = await sendEmail({
+    to,
+    subject: `[SEPRI] Scan ${kind} — ${data.created} nova(s) deteção(ões)`,
+    html,
+  });
+  if (!result.ok) {
+    console.error("[scan-summary] envio de email falhou:", result.reason);
   }
+  return result;
 }
 
 export const triggerManualScan = createServerFn({ method: "POST" }).handler(async () => {
@@ -417,7 +393,7 @@ export const sendTestAlertEmail = createServerFn({ method: "POST" }).handler(asy
       {
         id: "00000000-0000-0000-0000-000000000000",
         title: "Email de teste — configuração de alertas SEPRI",
-        summary: "Se recebeste este email, a ligação ao Brevo está configurada corretamente.",
+        summary: "Se recebeste este email, a configuração SMTP está correta.",
         source_name: "Teste",
         source_url: null,
       },

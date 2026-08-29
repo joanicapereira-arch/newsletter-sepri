@@ -1,14 +1,14 @@
 import { generateText, Output } from "ai";
 import { z } from "zod";
-import { createLovableAi, requireLovableApiKey } from "./ai-gateway.server";
-import { firecrawlScrape } from "./firecrawl.server";
+import { createClaudeAi, requireAnthropicApiKey, QUALITY_MODEL } from "./ai-provider.server";
+import { firecrawlScrape } from "./web-scraper.server";
 import {
   renderNewsletterHtml,
   type NewsletterDocument,
   type NewsletterItemContent,
 } from "./newsletter-html.server";
 
-const MODEL = "google/gemini-3-flash-preview";
+const MODEL = QUALITY_MODEL;
 
 interface DetectionInput {
   title: string;
@@ -342,7 +342,7 @@ async function generateItemContent(
   d: DetectionInput,
   fullText: string | null,
 ): Promise<{ subject: string; content: NewsletterItemContent } | null> {
-  const ai = createLovableAi(requireLovableApiKey());
+  const ai = createClaudeAi(requireAnthropicApiKey());
   const prompt = `Fonte: ${d.source_name}
 Título detetado: ${d.title}
 Resumo curto: ${d.summary}
@@ -400,7 +400,7 @@ export async function generateCombinedNewsletterHtml(
   items: DetectionInput[],
   chrome: ChromeInput,
 ) {
-  const ai = createLovableAi(requireLovableApiKey());
+  const ai = createClaudeAi(requireAnthropicApiKey());
   const fullTexts = await Promise.all(items.map((it) => fetchFullArticleText(it.source_url)));
 
   let subject = items.length === 1 ? items[0].title.slice(0, 80) : "Atualizações SEPRI";

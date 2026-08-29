@@ -100,9 +100,9 @@ function ConfigPage() {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Usa este botão para confirmar que a ligação ao Brevo está configurada, sem esperar
-            por uma deteção real. Se falhar, a mensagem de erro indica exatamente o que falta
-            configurar (ex: conector Brevo por ligar).
+            Usa este botão para confirmar que o envio de email (SMTP) está configurado, sem
+            esperar por uma deteção real. Se falhar, a mensagem de erro indica exatamente o que
+            falta configurar (ex: SMTP_HOST/SMTP_USER/SMTP_PASS por definir).
           </p>
         </CardContent>
       </Card>

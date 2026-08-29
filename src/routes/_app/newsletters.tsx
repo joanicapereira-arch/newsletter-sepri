@@ -246,7 +246,7 @@ function NewslettersPage() {
         <div>
           <h1 className="text-2xl font-bold mb-1">Newsletters geradas</h1>
           <p className="text-sm text-muted-foreground">
-            HTML pronto a copiar para Brevo. Cada item corresponde a uma deteção aprovada.
+            HTML pronto a copiar para a tua plataforma de envio de newsletters. Cada item corresponde a uma deteção aprovada.
           </p>
         </div>
       </div>

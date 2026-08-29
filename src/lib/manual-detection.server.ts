@@ -1,9 +1,9 @@
 import { generateText, Output } from "ai";
 import { z } from "zod";
-import { createLovableAi, requireLovableApiKey } from "./ai-gateway.server";
-import { firecrawlScrape } from "./firecrawl.server";
+import { createClaudeAi, requireAnthropicApiKey, FAST_MODEL } from "./ai-provider.server";
+import { firecrawlScrape } from "./web-scraper.server";
 
-const MODEL = "google/gemini-3-flash-preview";
+const MODEL = FAST_MODEL;
 
 export interface ExtractedArticle {
   title: string;
@@ -56,7 +56,7 @@ export async function extractArticleFromUrl(
     throw new Error("Não foi possível ler o conteúdo desse URL. Verifica o endereço.");
   }
 
-  const ai = createLovableAi(requireLovableApiKey());
+  const ai = createClaudeAi(requireAnthropicApiKey());
   const { output } = await generateText({
     model: ai(MODEL),
     output: Output.object({
