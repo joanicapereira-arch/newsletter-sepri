@@ -1,4 +1,4 @@
-import { callClaudeStructured, QUALITY_MODEL } from "./ai-provider.server";
+import { callAiStructured, QUALITY_MODEL } from "./ai-provider.server";
 import { firecrawlScrape } from "./web-scraper.server";
 import {
   renderNewsletterHtml,
@@ -391,10 +391,8 @@ Redige a newsletter completa seguindo a estrutura visual SEPRI. Não te limites 
 
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const output = await callClaudeStructured<{ subject: string; content: Record<string, unknown> }>({
+      const output = await callAiStructured<{ subject: string; content: Record<string, unknown> }>({
         model: MODEL,
-        toolName: "redigir_newsletter",
-        toolDescription: "Devolve a newsletter redigida em formato estruturado.",
         inputSchema: {
           type: "object",
           properties: {
@@ -449,14 +447,12 @@ export async function generateCombinedNewsletterHtml(
   let enrichedItems: NewsletterItemContent[];
 
   try {
-    const output = await callClaudeStructured<{
+    const output = await callAiStructured<{
       subject?: string;
       intro?: unknown;
       items: Record<string, unknown>[];
     }>({
       model: MODEL,
-      toolName: "redigir_newsletter_agregada",
-      toolDescription: "Devolve a newsletter agregada em formato estruturado.",
       inputSchema: {
         type: "object",
         properties: {

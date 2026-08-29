@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { callClaudeStructured, FAST_MODEL } from "./ai-provider.server";
+import { callAiStructured, FAST_MODEL } from "./ai-provider.server";
 import { firecrawlDeepScrape, resolveUrlCandidatesForTitle, verifyArticleUrl } from "./web-scraper.server";
 
 const MODEL = FAST_MODEL;
@@ -42,7 +42,7 @@ async function scanOneSource(source: SourceRow, knownHashes: Set<string>, exampl
   const cutoff = new Date(today.getTime() - 90 * 86400_000);
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
 
-  const output = await callClaudeStructured<{
+  const output = await callAiStructured<{
     items: Array<{
       title: string;
       summary: string;
@@ -52,8 +52,6 @@ async function scanOneSource(source: SourceRow, knownHashes: Set<string>, exampl
     }>;
   }>({
     model: MODEL,
-    toolName: "reportar_deteccoes",
-    toolDescription: "Devolve a lista de novidades relevantes detetadas nesta fonte.",
     inputSchema: {
       type: "object",
       properties: {
@@ -64,8 +62,8 @@ async function scanOneSource(source: SourceRow, knownHashes: Set<string>, exampl
             properties: {
               title: { type: "string" },
               summary: { type: "string" },
-              source_url: { type: ["string", "null"] },
-              published_at: { type: ["string", "null"] },
+              source_url: { type: "string", nullable: true },
+              published_at: { type: "string", nullable: true },
               relevance_score: { type: "number", minimum: 0, maximum: 100 },
             },
             required: ["title", "summary", "relevance_score"],
@@ -143,13 +141,11 @@ Extrai novidades relevantes dos últimos 90 dias, cada uma com a sua URL especí
         const page = await firecrawlScrape(item.source_url, 150, 6000);
         const md = (page?.markdown ?? "").slice(0, 6000);
         if (!md) return;
-        const dateOut = await callClaudeStructured<{ published_at: string | null }>({
+        const dateOut = await callAiStructured<{ published_at: string | null }>({
           model: MODEL,
-          toolName: "reportar_data",
-          toolDescription: "Devolve a data de publicação inferida.",
           inputSchema: {
             type: "object",
-            properties: { published_at: { type: ["string", "null"] } },
+            properties: { published_at: { type: "string", nullable: true } },
             required: ["published_at"],
           },
           system: `Extrai a data de publicação da notícia/diploma a partir do conteúdo da página. Devolve YYYY-MM-DD ou null se mesmo não conseguires inferir. Procura por "Publicado em", "Data:", datas no formato DD/MM/AAAA, DD-MM-AAAA, ou referências como "1 de janeiro de 2025". Para diplomas do DRE usa a data do diploma.`,

@@ -1,4 +1,4 @@
-import { callClaudeStructured, FAST_MODEL } from "./ai-provider.server";
+import { callAiStructured, FAST_MODEL } from "./ai-provider.server";
 import { firecrawlScrape } from "./web-scraper.server";
 
 const MODEL = FAST_MODEL;
@@ -54,21 +54,19 @@ export async function extractArticleFromUrl(
     throw new Error("Não foi possível ler o conteúdo desse URL. Verifica o endereço.");
   }
 
-  const output = await callClaudeStructured<{
+  const output = await callAiStructured<{
     title: string;
     summary: string;
     published_at: string | null;
     relevance_score: number;
   }>({
     model: MODEL,
-    toolName: "reportar_artigo",
-    toolDescription: "Devolve os dados extraídos do artigo.",
     inputSchema: {
       type: "object",
       properties: {
         title: { type: "string" },
         summary: { type: "string" },
-        published_at: { type: ["string", "null"] },
+        published_at: { type: "string", nullable: true },
         relevance_score: { type: "number", minimum: 0, maximum: 100 },
       },
       required: ["title", "summary", "published_at", "relevance_score"],

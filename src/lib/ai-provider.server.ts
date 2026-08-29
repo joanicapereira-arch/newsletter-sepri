@@ -1,71 +1,69 @@
-// Chamadas diretas à API da Anthropic via fetch nativo — sem SDK (@ai-sdk/anthropic),
-// para não depender de nenhum pacote novo no deploy.
+// Chamadas diretas à API do Google Gemini via fetch nativo — gratuita (sem
+// cartão de crédito) na Google AI Studio para os modelos Flash, ao contrário
+// da API da Anthropic que exige saldo pré-pago.
 
-export function requireAnthropicApiKey(): string {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) throw new Error("ANTHROPIC_API_KEY não configurada");
+export function requireGeminiApiKey(): string {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error("GEMINI_API_KEY não configurada");
   return key;
 }
 
-/** Modelo rápido/económico — usado na triagem diária das 6 fontes. */
-export const FAST_MODEL = "claude-haiku-4-5-20251001";
+/** Modelo usado tanto para a triagem diária como para a redação da newsletter —
+ * o Flash já tem qualidade suficiente para ambos e mantém-se dentro do nível
+ * gratuito da Google AI Studio (sem custos). */
+export const FAST_MODEL = "gemini-2.5-flash";
+export const QUALITY_MODEL = "gemini-2.5-flash";
 
-/** Modelo de maior qualidade — usado na redação final da newsletter. */
-export const QUALITY_MODEL = "claude-sonnet-5";
-
-interface ClaudeStructuredOptions {
+interface AiStructuredOptions {
   model: string;
   system: string;
   prompt: string;
-  /** Nome da "tool" forçada — usada só como mecanismo para obter JSON estruturado. */
-  toolName: string;
-  toolDescription?: string;
-  /** JSON Schema (formato usado pelas tools da Anthropic) do objeto a devolver. */
+  /** JSON Schema do objeto a devolver (subset suportado pelo responseSchema do Gemini). */
   inputSchema: Record<string, unknown>;
   maxTokens?: number;
 }
 
 /**
- * Chama a API da Anthropic (Messages API) diretamente via fetch, forçando o uso
- * de uma tool para obter output estruturado de forma fiável (equivalente ao que
- * o "Output.object" do Vercel AI SDK fazia, mas sem precisar desse pacote).
+ * Chama a API do Gemini (generateContent) diretamente via fetch, usando
+ * responseSchema/responseMimeType para obter JSON estruturado de forma fiável
+ * (equivalente ao "Output.object" do Vercel AI SDK, mas sem esse pacote).
  */
-export async function callClaudeStructured<T = unknown>(opts: ClaudeStructuredOptions): Promise<T> {
-  const apiKey = requireAnthropicApiKey();
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+export async function callAiStructured<T = unknown>(opts: AiStructuredOptions): Promise<T> {
+  const apiKey = requireGeminiApiKey();
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${opts.model}:generateContent`;
+
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
+      "x-goog-api-key": apiKey,
     },
     body: JSON.stringify({
-      model: opts.model,
-      max_tokens: opts.maxTokens ?? 4096,
-      system: opts.system,
-      messages: [{ role: "user", content: opts.prompt }],
-      tools: [
-        {
-          name: opts.toolName,
-          description: opts.toolDescription ?? "Devolve o resultado estruturado pedido.",
-          input_schema: opts.inputSchema,
-        },
-      ],
-      tool_choice: { type: "tool", name: opts.toolName },
+      system_instruction: { parts: [{ text: opts.system }] },
+      contents: [{ role: "user", parts: [{ text: opts.prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: opts.inputSchema,
+        maxOutputTokens: opts.maxTokens ?? 8192,
+      },
     }),
   });
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Anthropic API ${res.status}: ${text.slice(0, 500)}`);
+    throw new Error(`Gemini API ${res.status}: ${text.slice(0, 500)}`);
   }
 
   const data = (await res.json()) as {
-    content?: Array<{ type: string; input?: unknown; name?: string }>;
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
   };
-  const toolUse = (data.content ?? []).find((b) => b.type === "tool_use" && b.name === opts.toolName);
-  if (!toolUse) {
-    throw new Error("Claude não devolveu o resultado estruturado esperado (sem tool_use).");
+  const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+  if (!text.trim()) {
+    throw new Error("Gemini não devolveu conteúdo (possível bloqueio de segurança ou resposta vazia).");
   }
-  return toolUse.input as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(`Gemini devolveu JSON inválido: ${text.slice(0, 300)}`);
+  }
 }
