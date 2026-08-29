@@ -1,6 +1,4 @@
-import { generateText, Output } from "ai";
-import { z } from "zod";
-import { createClaudeAi, requireAnthropicApiKey, QUALITY_MODEL } from "./ai-provider.server";
+import { callClaudeStructured, QUALITY_MODEL } from "./ai-provider.server";
 import { firecrawlScrape } from "./web-scraper.server";
 import {
   renderNewsletterHtml,
@@ -23,70 +21,110 @@ interface ChromeInput {
   disclaimer_html: string;
 }
 
-const SubsectionSchema = z.object({
-  heading: z.string(),
-  paragraph: z.string().optional(),
-  bullets: z.array(z.string()).optional(),
-});
+// JSON Schema (formato das tools da Anthropic) equivalente ao antigo ItemContentSchema (zod).
+const SUBSECTION_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    heading: { type: "string" },
+    paragraph: { type: "string" },
+    bullets: { type: "array", items: { type: "string" } },
+  },
+  required: ["heading"],
+};
 
-const SectionSchema = z.object({
-  icon: z.string().optional().describe("emoji único, ex: 🌿, 🫁, 💡, ✅"),
-  heading: z.string(),
-  paragraphs: z.array(z.string()).optional(),
-  bullets: z.array(z.string()).optional(),
-  subsections: z.array(SubsectionSchema).optional(),
-});
+const SECTION_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    icon: { type: "string", description: "emoji único, ex: 🌿, 🫁, 💡, ✅" },
+    heading: { type: "string" },
+    paragraphs: { type: "array", items: { type: "string" } },
+    bullets: { type: "array", items: { type: "string" } },
+    subsections: { type: "array", items: SUBSECTION_JSON_SCHEMA },
+  },
+  required: ["heading"],
+};
 
-const GuidelinesSchema = z.object({
-  heading: z.string(),
-  intro: z.string().optional(),
-  items: z.array(z.string()),
-});
+const GUIDELINES_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    heading: { type: "string" },
+    intro: { type: "string" },
+    items: { type: "array", items: { type: "string" } },
+  },
+  required: ["heading", "items"],
+};
 
-const ResourceSchema = z.object({
-  heading: z.string().describe(
-    "Título do bloco de destaque, ex: 'Descarregue o nosso panfleto informativo' ou 'Descarregue o documento relacionado'",
-  ),
-  image_url: z.string().optional().describe("Deixa vazio — a imagem é adicionada manualmente pela Eliana antes do envio."),
-  link_url: z.string().optional().describe("URL do documento/recurso a descarregar, se mencionado na fonte."),
-});
+const RESOURCE_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    heading: {
+      type: "string",
+      description:
+        "Título do bloco de destaque, ex: 'Descarregue o nosso panfleto informativo' ou 'Descarregue o documento relacionado'",
+    },
+    image_url: {
+      type: "string",
+      description: "Deixa vazio — a imagem é adicionada manualmente pela Eliana antes do envio.",
+    },
+    link_url: { type: "string", description: "URL do documento/recurso a descarregar, se mencionado na fonte." },
+  },
+  required: ["heading"],
+};
 
-const CtaSchema = z.object({
-  label: z.string().describe("Texto do botão em maiúsculas, ex: 'PEÇA UMA PROPOSTA PERSONALIZADA'"),
-  url: z.string().optional().describe("URL opcional; se vazio, usa contactos SEPRI"),
-});
+const CTA_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    label: { type: "string", description: "Texto do botão em maiúsculas, ex: 'PEÇA UMA PROPOSTA PERSONALIZADA'" },
+    url: { type: "string", description: "URL opcional; se vazio, usa contactos SEPRI" },
+  },
+  required: ["label"],
+};
 
-const ItemContentSchema = z.object({
-  overtitle: z
-    .string()
-    .optional()
-    .describe(
-      "Kicker em maiúsculas no formato 'IDENTIFICADOR | CATEGORIA', ex: 'PORTARIA N.º 283/2026 | LEGISLAÇÃO & SAÚDE OCUPACIONAL' ou 'DGS | SAÚDE OCUPACIONAL'",
-    ),
-  title: z
-    .string()
-    .describe(
-      "H1 orientado ao benefício para a empresa cliente, ex: 'Campanha de Vacinação Sazonal 2026-2027: o que a sua empresa precisa de saber'",
-    ),
-  subtitle: z
-    .string()
-    .optional()
-    .describe("Subtítulo curto que enquadra o tema e menciona o apoio SEPRI (opcional)"),
-  intro_paragraphs: z.array(z.string()).min(1).describe("Pelo menos 1 parágrafo de introdução substancial (2-4 frases)."),
-  sections: z.array(SectionSchema).min(2).describe(
-    "No mínimo 2 secções desenvolvidas (ex: 'O que estabelece / Pontos-chave' e 'Impacto Direto na Saúde e Produtividade'). Cada secção deve ter parágrafo(s) e/ou bullets com conteúdo real, nunca frases vagas de uma linha.",
-  ),
-  guidelines: GuidelinesSchema.optional().describe(
-    "Bloco de orientações práticas para a SEPRI dar aos seus clientes. Preenche SEMPRE que o tema permitir dar recomendações de saúde/segurança ocupacional (quase sempre) — mesmo que a fonte não as liste explicitamente, deriva 3-5 recomendações práticas e acionáveis coerentes com o tema, claramente como boas práticas recomendadas pela SEPRI (não como factos da fonte).",
-  ),
-  resource: ResourceSchema.optional().describe(
-    "Preencher APENAS quando a notícia/fonte menciona explicitamente um documento, panfleto, guia ou material para descarregar. Não inventes um recurso quando a fonte não o tem.",
-  ),
-  closing_paragraph: z.string().optional().describe("Parágrafo curto que convida à ação antes do CTA."),
-  cta: CtaSchema.optional().describe(
-    "Botão final. Preencher SEMPRE que a newsletter promove um serviço SEPRI (quase sempre).",
-  ),
-});
+const ITEM_CONTENT_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    overtitle: {
+      type: "string",
+      description:
+        "Kicker em maiúsculas no formato 'IDENTIFICADOR | CATEGORIA', ex: 'PORTARIA N.º 283/2026 | LEGISLAÇÃO & SAÚDE OCUPACIONAL' ou 'DGS | SAÚDE OCUPACIONAL'",
+    },
+    title: {
+      type: "string",
+      description:
+        "H1 orientado ao benefício para a empresa cliente, ex: 'Campanha de Vacinação Sazonal 2026-2027: o que a sua empresa precisa de saber'",
+    },
+    subtitle: { type: "string", description: "Subtítulo curto que enquadra o tema e menciona o apoio SEPRI (opcional)" },
+    intro_paragraphs: {
+      type: "array",
+      items: { type: "string" },
+      minItems: 1,
+      description: "Pelo menos 1 parágrafo de introdução substancial (2-4 frases).",
+    },
+    sections: {
+      type: "array",
+      items: SECTION_JSON_SCHEMA,
+      minItems: 2,
+      description:
+        "No mínimo 2 secções desenvolvidas (ex: 'O que estabelece / Pontos-chave' e 'Impacto Direto na Saúde e Produtividade'). Cada secção deve ter parágrafo(s) e/ou bullets com conteúdo real, nunca frases vagas de uma linha.",
+    },
+    guidelines: {
+      ...GUIDELINES_JSON_SCHEMA,
+      description:
+        "Bloco de orientações práticas para a SEPRI dar aos seus clientes. Preenche SEMPRE que o tema permitir dar recomendações de saúde/segurança ocupacional (quase sempre) — mesmo que a fonte não as liste explicitamente, deriva 3-5 recomendações práticas e acionáveis coerentes com o tema, claramente como boas práticas recomendadas pela SEPRI (não como factos da fonte).",
+    },
+    resource: {
+      ...RESOURCE_JSON_SCHEMA,
+      description:
+        "Preencher APENAS quando a notícia/fonte menciona explicitamente um documento, panfleto, guia ou material para descarregar. Não inventes um recurso quando a fonte não o tem.",
+    },
+    closing_paragraph: { type: "string", description: "Parágrafo curto que convida à ação antes do CTA." },
+    cta: {
+      ...CTA_JSON_SCHEMA,
+      description: "Botão final. Preencher SEMPRE que a newsletter promove um serviço SEPRI (quase sempre).",
+    },
+  },
+  required: ["title", "intro_paragraphs", "sections"],
+};
 
 const SYSTEM_BASE = `És redator de marketing técnico da SEPRI Group (medicina no trabalho e saúde ocupacional).
 A newsletter serve dois públicos em simultâneo: comunicação interna e comunicação para
@@ -342,7 +380,6 @@ async function generateItemContent(
   d: DetectionInput,
   fullText: string | null,
 ): Promise<{ subject: string; content: NewsletterItemContent } | null> {
-  const ai = createClaudeAi(requireAnthropicApiKey());
   const prompt = `Fonte: ${d.source_name}
 Título detetado: ${d.title}
 Resumo curto: ${d.summary}
@@ -354,25 +391,30 @@ Redige a newsletter completa seguindo a estrutura visual SEPRI. Não te limites 
 
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const { output } = await generateText({
-        model: ai(MODEL),
-        output: Output.object({
-          schema: z.object({
-            subject: z.string().describe("Assunto Brevo, até 80 caracteres"),
-            content: ItemContentSchema,
-          }),
-        }),
+      const output = await callClaudeStructured<{ subject: string; content: Record<string, unknown> }>({
+        model: MODEL,
+        toolName: "redigir_newsletter",
+        toolDescription: "Devolve a newsletter redigida em formato estruturado.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            subject: { type: "string", description: "Assunto Brevo, até 80 caracteres" },
+            content: ITEM_CONTENT_JSON_SCHEMA,
+          },
+          required: ["subject", "content"],
+        },
+        maxTokens: 8192,
         system: SYSTEM_BASE,
         prompt,
       });
       return {
         subject: output.subject,
         content: {
-          ...mapAiContent(output.content),
+          ...mapAiContent(output.content as any),
           source_name: d.source_name,
           source_url: d.source_url,
           published_at: d.published_at ?? null,
-        },
+        } as NewsletterItemContent,
       };
     } catch (err) {
       console.error(`[newsletter-ai] generateItemContent tentativa ${attempt} falhou:`, err);
@@ -400,7 +442,6 @@ export async function generateCombinedNewsletterHtml(
   items: DetectionInput[],
   chrome: ChromeInput,
 ) {
-  const ai = createClaudeAi(requireAnthropicApiKey());
   const fullTexts = await Promise.all(items.map((it) => fetchFullArticleText(it.source_url)));
 
   let subject = items.length === 1 ? items[0].title.slice(0, 80) : "Atualizações SEPRI";
@@ -408,14 +449,24 @@ export async function generateCombinedNewsletterHtml(
   let enrichedItems: NewsletterItemContent[];
 
   try {
-    const LooseSchema = z.object({
-      subject: z.string().optional(),
-      intro: z.any().optional(),
-      items: z.array(z.any()).min(1),
-    });
-    const { output } = await generateText({
-      model: ai(MODEL),
-      output: Output.object({ schema: LooseSchema }),
+    const output = await callClaudeStructured<{
+      subject?: string;
+      intro?: unknown;
+      items: Record<string, unknown>[];
+    }>({
+      model: MODEL,
+      toolName: "redigir_newsletter_agregada",
+      toolDescription: "Devolve a newsletter agregada em formato estruturado.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          subject: { type: "string" },
+          intro: { type: "object" },
+          items: { type: "array", items: { type: "object" }, minItems: 1 },
+        },
+        required: ["items"],
+      },
+      maxTokens: 8192,
       system: `${SYSTEM_BASE}
 
 Vais redigir UMA newsletter que agrega várias atualizações. Devolve SEMPRE um único objeto

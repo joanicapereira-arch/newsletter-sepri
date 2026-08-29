@@ -1,6 +1,4 @@
-import { generateText, Output } from "ai";
-import { z } from "zod";
-import { createClaudeAi, requireAnthropicApiKey, FAST_MODEL } from "./ai-provider.server";
+import { callClaudeStructured, FAST_MODEL } from "./ai-provider.server";
 import { firecrawlScrape } from "./web-scraper.server";
 
 const MODEL = FAST_MODEL;
@@ -56,17 +54,25 @@ export async function extractArticleFromUrl(
     throw new Error("Não foi possível ler o conteúdo desse URL. Verifica o endereço.");
   }
 
-  const ai = createClaudeAi(requireAnthropicApiKey());
-  const { output } = await generateText({
-    model: ai(MODEL),
-    output: Output.object({
-      schema: z.object({
-        title: z.string(),
-        summary: z.string(),
-        published_at: z.string().nullable(),
-        relevance_score: z.coerce.number().min(0).max(100),
-      }),
-    }),
+  const output = await callClaudeStructured<{
+    title: string;
+    summary: string;
+    published_at: string | null;
+    relevance_score: number;
+  }>({
+    model: MODEL,
+    toolName: "reportar_artigo",
+    toolDescription: "Devolve os dados extraídos do artigo.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string" },
+        summary: { type: "string" },
+        published_at: { type: ["string", "null"] },
+        relevance_score: { type: "number", minimum: 0, maximum: 100 },
+      },
+      required: ["title", "summary", "published_at", "relevance_score"],
+    },
     system: `És um analista da SEPRI Group (medicina e segurança no trabalho em Portugal).
 Recebes o conteúdo de UMA página (notícia, diploma ou orientação) e devolves:
 - title: o título real da notícia/diploma (em português, sem nome do site nem sufixos de navegação).

@@ -1,7 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { generateText, Output } from "ai";
-import { z } from "zod";
-import { createClaudeAi, requireAnthropicApiKey, FAST_MODEL } from "./ai-provider.server";
+import { callClaudeStructured, FAST_MODEL } from "./ai-provider.server";
 import { firecrawlDeepScrape, resolveUrlCandidatesForTitle, verifyArticleUrl } from "./web-scraper.server";
 
 const MODEL = FAST_MODEL;
@@ -40,28 +38,42 @@ async function scanOneSource(source: SourceRow, knownHashes: Set<string>, exampl
   const content = deep.markdown.slice(0, 14000);
   if (!content) return { created: 0, dropped: [] as string[], error: null as string | null };
 
-  const apiKey = requireAnthropicApiKey();
-  const ai = createClaudeAi(apiKey);
-
   const today = new Date();
   const cutoff = new Date(today.getTime() - 90 * 86400_000);
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
 
-  const { output } = await generateText({
-    model: ai(MODEL),
-    output: Output.object({
-      schema: z.object({
-        items: z.array(
-          z.object({
-            title: z.string(),
-            summary: z.string(),
-            source_url: z.string().nullable().optional(),
-            published_at: z.string().nullable().optional(),
-            relevance_score: z.coerce.number().min(0).max(100),
-          }),
-        ).default([]),
-      }),
-    }),
+  const output = await callClaudeStructured<{
+    items: Array<{
+      title: string;
+      summary: string;
+      source_url?: string | null;
+      published_at?: string | null;
+      relevance_score: number;
+    }>;
+  }>({
+    model: MODEL,
+    toolName: "reportar_deteccoes",
+    toolDescription: "Devolve a lista de novidades relevantes detetadas nesta fonte.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              summary: { type: "string" },
+              source_url: { type: ["string", "null"] },
+              published_at: { type: ["string", "null"] },
+              relevance_score: { type: "number", minimum: 0, maximum: 100 },
+            },
+            required: ["title", "summary", "relevance_score"],
+          },
+        },
+      },
+      required: ["items"],
+    },
     system: `És um analista que monitoriza legislação e técnica para a SEPRI Group (medicina e segurança no trabalho em Portugal).
 Recebes conteúdo bruto de uma fonte (pode incluir várias páginas concatenadas + uma lista de URLs candidatas) e devolves SÓ as novidades genuinamente RELEVANTES para os temas SEPRI:
 medicina do trabalho, segurança no trabalho (SST), riscos psicossociais, autoproteção de edifícios e incêndios,
@@ -94,7 +106,7 @@ Extrai novidades relevantes dos últimos 90 dias, cada uma com a sua URL especí
   });
 
   const rootNorm = source.url.replace(/\/$/, "");
-  const rawItems = output.items.filter((i) => i.title && i.summary && i.relevance_score >= 40);
+  const rawItems = (output.items ?? []).filter((i) => i.title && i.summary && i.relevance_score >= 40);
 
   const itemsWithCandidates = rawItems.map((i) => {
     const aiUrl = i.source_url?.trim();
@@ -131,11 +143,15 @@ Extrai novidades relevantes dos últimos 90 dias, cada uma com a sua URL especí
         const page = await firecrawlScrape(item.source_url, 150, 6000);
         const md = (page?.markdown ?? "").slice(0, 6000);
         if (!md) return;
-        const { output: dateOut } = await generateText({
-          model: ai(MODEL),
-          output: Output.object({
-            schema: z.object({ published_at: z.string().nullable() }),
-          }),
+        const dateOut = await callClaudeStructured<{ published_at: string | null }>({
+          model: MODEL,
+          toolName: "reportar_data",
+          toolDescription: "Devolve a data de publicação inferida.",
+          inputSchema: {
+            type: "object",
+            properties: { published_at: { type: ["string", "null"] } },
+            required: ["published_at"],
+          },
           system: `Extrai a data de publicação da notícia/diploma a partir do conteúdo da página. Devolve YYYY-MM-DD ou null se mesmo não conseguires inferir. Procura por "Publicado em", "Data:", datas no formato DD/MM/AAAA, DD-MM-AAAA, ou referências como "1 de janeiro de 2025". Para diplomas do DRE usa a data do diploma.`,
           prompt: `Título: ${item.title}\nURL: ${item.source_url}\n\nConteúdo:\n${md}`,
         });
