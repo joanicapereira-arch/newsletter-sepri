@@ -100,9 +100,9 @@ function ConfigPage() {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Usa este botão para confirmar que o envio de email (SMTP) está configurado, sem
+            Usa este botão para confirmar que o envio de email (Resend) está configurado, sem
             esperar por uma deteção real. Se falhar, a mensagem de erro indica exatamente o que
-            falta configurar (ex: SMTP_HOST/SMTP_USER/SMTP_PASS por definir).
+            falta configurar (ex: RESEND_API_KEY por definir).
           </p>
         </CardContent>
       </Card>

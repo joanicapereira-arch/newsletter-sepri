@@ -1,43 +1,40 @@
-import nodemailer from "nodemailer";
+// Envio de email via Resend (API HTTP com fetch — funciona em Cloudflare
+// Workers, ao contrário de SMTP/nodemailer, que precisa de sockets TCP em
+// bruto que o Workers não suporta).
+//
+// Configuração necessária (secrets do projeto):
+// - RESEND_API_KEY: chave gerada em https://resend.com/api-keys
+// - RESEND_FROM (opcional): remetente a usar. Sem domínio verificado no
+//   Resend, usa "onboarding@resend.dev" (só permite enviar para o email da
+//   própria conta Resend — suficiente para o alerta interno da Eliana).
 
 export type SendEmailResult = { ok: true } | { ok: false; reason: string };
 
-let cachedTransport: ReturnType<typeof nodemailer.createTransport> | null = null;
-
-/**
- * Lê a configuração SMTP das secrets. Para Gmail: SMTP_HOST=smtp.gmail.com,
- * SMTP_PORT=465, SMTP_USER=oteuemail@gmail.com, SMTP_PASS=palavra-passe de
- * aplicação (não a palavra-passe normal da conta — gera uma em
- * https://myaccount.google.com/apppasswords).
- */
-function getTransport() {
-  if (cachedTransport) return cachedTransport;
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT ?? 465);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  if (!host || !user || !pass) return null;
-  cachedTransport = nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-  });
-  return cachedTransport;
-}
-
 export async function sendEmail(opts: { to: string; subject: string; html: string }): Promise<SendEmailResult> {
-  const transport = getTransport();
-  if (!transport) {
-    return {
-      ok: false,
-      reason:
-        "SMTP não configurado — em falta uma ou mais de: SMTP_HOST, SMTP_USER, SMTP_PASS nas secrets do projeto.",
-    };
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return { ok: false, reason: "RESEND_API_KEY em falta nas secrets do projeto." };
   }
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER!;
+  const from = process.env.RESEND_FROM || "onboarding@resend.dev";
+
   try {
-    await transport.sendMail({ from, to: opts.to, subject: opts.subject, html: opts.html });
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        from,
+        to: [opts.to],
+        subject: opts.subject,
+        html: opts.html,
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      return { ok: false, reason: `Resend devolveu erro ${res.status}: ${text.slice(0, 300)}` };
+    }
     return { ok: true };
   } catch (e) {
     return { ok: false, reason: String((e as Error).message ?? e) };

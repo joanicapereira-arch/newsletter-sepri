@@ -393,7 +393,7 @@ export const sendTestAlertEmail = createServerFn({ method: "POST" }).handler(asy
       {
         id: "00000000-0000-0000-0000-000000000000",
         title: "Email de teste — configuração de alertas SEPRI",
-        summary: "Se recebeste este email, a configuração SMTP está correta.",
+        summary: "Se recebeste este email, a configuração do Resend está correta.",
         source_name: "Teste",
         source_url: null,
       },
