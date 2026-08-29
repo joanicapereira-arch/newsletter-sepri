@@ -11,8 +11,8 @@ export function requireGeminiApiKey(): string {
 /** Modelo usado tanto para a triagem diária como para a redação da newsletter —
  * o Flash já tem qualidade suficiente para ambos e mantém-se dentro do nível
  * gratuito da Google AI Studio (sem custos). */
-export const FAST_MODEL = "gemini-2.5-flash";
-export const QUALITY_MODEL = "gemini-2.5-flash";
+export const FAST_MODEL = "gemini-3.6-flash";
+export const QUALITY_MODEL = "gemini-3.6-flash";
 
 interface AiStructuredOptions {
   model: string;
