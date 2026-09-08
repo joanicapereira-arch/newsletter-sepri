@@ -338,7 +338,7 @@ async function sendScanSummaryEmail(
   const inboxUrl = `${data.origin}/inbox`;
   const detectionsHtml = data.detections
     .map((d) => {
-      const { approveUrl, rejectUrl } = buildApprovalUrls(data.origin, d.id);
+      const { approveUrl, priorityUrl, rejectUrl } = buildApprovalUrls(data.origin, d.id);
       return `
       <tr><td style="padding:16px 0;border-bottom:1px solid #e5e7eb;">
         <p style="margin:0 0 4px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;">${escapeHtml(d.source_name)}</p>
@@ -346,7 +346,8 @@ async function sendScanSummaryEmail(
         <p style="margin:0 0 12px;font-size:14px;color:#374151;line-height:1.5;">${escapeHtml(d.summary)}</p>
         ${d.source_url ? `<p style="margin:0 0 12px;"><a href="${d.source_url}" style="color:#0891b2;font-size:13px;">Ver notícia original →</a></p>` : ""}
         <p style="margin:0;">
-          <a href="${approveUrl}" style="display:inline-block;padding:8px 14px;background:#10b981;color:#fff;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;margin-right:8px;">✅ Aprovar</a>
+          <a href="${approveUrl}" style="display:inline-block;padding:8px 14px;background:#0891b2;color:#fff;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;margin-right:8px;">ℹ️ Informativo</a>
+          <a href="${priorityUrl}" style="display:inline-block;padding:8px 14px;background:#f59e0b;color:#fff;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;margin-right:8px;">⭐ Prioritário</a>
           <a href="${rejectUrl}" style="display:inline-block;padding:8px 14px;background:#ef4444;color:#fff;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;">❌ Rejeitar</a>
         </p>
       </td></tr>`;

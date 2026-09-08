@@ -10,7 +10,18 @@ a{color:#0f5e8f;text-decoration:none;font-weight:600;display:inline-block;margin
 </head><body><div class="card"><h1>${title}</h1>${body}<a href="/">Ir para o dashboard SEPRI →</a></div></body></html>`;
 }
 
-async function handle(action: "approve" | "reject", token: string) {
+function escapeHtml(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  informativo: "informativa",
+  prioritario: "prioritária",
+  rejected: "rejeitada",
+};
+
+/** "approve" -> informativo, "priority" -> prioritario. Ambas geram a newsletter. */
+async function handle(action: "approve" | "priority", token: string) {
   const parsed = verifyToken(token);
   if (!parsed || parsed.action !== action) {
     return new Response(page("Link inválido", "<p>Este link de aprovação é inválido ou expirou.</p>", "#dc2626"), {
@@ -18,6 +29,7 @@ async function handle(action: "approve" | "reject", token: string) {
       headers: { "Content-Type": "text/html; charset=utf-8" },
     });
   }
+  const finalStatus = action === "priority" ? "prioritario" : "informativo";
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: det } = await supabaseAdmin
     .from("detections")
@@ -31,34 +43,13 @@ async function handle(action: "approve" | "reject", token: string) {
     });
   }
   if (det.status !== "pending") {
-    const label =
-      det.status === "rejected"
-        ? "rejeitada"
-        : det.status === "prioritario"
-          ? "prioritária"
-          : "informativa";
+    const label = STATUS_LABEL[det.status] ?? det.status;
     return new Response(
-      page(
-        "Já processada",
-        `<p>Esta deteção já tinha sido marcada como <strong>${label}</strong>.</p>`,
-        "#64748b",
-      ),
+      page("Já processada", `<p>Esta deteção já tinha sido marcada como <strong>${label}</strong>.</p>`, "#64748b"),
       { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } },
     );
   }
 
-  if (action === "reject") {
-    await supabaseAdmin
-      .from("detections")
-      .update({ status: "rejected", decided_at: new Date().toISOString() })
-      .eq("id", det.id);
-    return new Response(
-      page("Rejeitada", `<p>A deteção <em>"${escapeHtml(det.title)}"</em> foi marcada como rejeitada.</p>`, "#0f5e8f"),
-      { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } },
-    );
-  }
-
-  // Approve: generate newsletter
   const { data: cfg } = await supabaseAdmin.from("app_config").select("*").eq("id", 1).single();
   try {
     const { generateNewsletterHtml } = await import("@/lib/newsletter-ai.server");
@@ -77,7 +68,7 @@ async function handle(action: "approve" | "reject", token: string) {
     await supabaseAdmin.from("newsletters").insert({ detection_id: det.id, subject, html });
     await supabaseAdmin
       .from("detections")
-      .update({ status: "informativo", decided_at: new Date().toISOString() })
+      .update({ status: finalStatus, decided_at: new Date().toISOString() })
       .eq("id", det.id);
   } catch (e) {
     console.error("approve failed", e);
@@ -86,18 +77,15 @@ async function handle(action: "approve" | "reject", token: string) {
       headers: { "Content-Type": "text/html; charset=utf-8" },
     });
   }
+  const label = finalStatus === "prioritario" ? "Prioritária ✓" : "Informativa ✓";
   return new Response(
     page(
-      "Aprovada ✓",
+      label,
       `<p>A newsletter para <em>"${escapeHtml(det.title)}"</em> foi gerada e está disponível no dashboard, pronta para copiar para a plataforma de envio.</p>`,
       "#0f5e8f",
     ),
     { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } },
   );
-}
-
-function escapeHtml(s: string) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 export const Route = createFileRoute("/api/public/approve")({

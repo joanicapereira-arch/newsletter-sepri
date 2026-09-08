@@ -1,5 +1,3 @@
-import { SOCIAL_ICON_DATA_URIS } from "./social-icons.data";
-
 // SEPRI newsletter renderer — matches the reference template exactly:
 // (1) centered logo, (2) navy hero with icon + turquoise tag + white H1,
 // (3) turquoise intro block with white bold lead + supporting text,
@@ -107,12 +105,22 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
     .join("\n");
 
   return `<!doctype html>
-<html lang="pt">
+<html lang="pt" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
 <title>${esc(doc.subject)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" type="text/css">
+<!--[if mso]>
+<style type="text/css">
+  table, td { border-collapse: collapse; }
+  body, table, td, a, h1, h2, h3, p, span { font-family: Arial, Helvetica, sans-serif !important; }
+</style>
+<![endif]-->
 <style>
+  body, table, td, a { font-family: 'Open Sans', Arial, Helvetica, sans-serif; }
   @media print {
     html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #ffffff !important; }
     body { padding: 0 !important; }
@@ -123,23 +131,26 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
 </style>
 
 </head>
-<body style="margin:0;padding:40px 0;background:${PAGE_BG};font-family:Arial,Helvetica,sans-serif;color:${INK};">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAGE_BG};">
+<body style="margin:0;padding:40px 0;background:${PAGE_BG};font-family:'Open Sans',Arial,Helvetica,sans-serif;color:${INK};">
+<!--[if mso]>
+<table role="presentation" width="640" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td>
+<![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${PAGE_BG};border-collapse:collapse;">
   <tr><td align="center">
-    <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;">
+    <table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" style="width:640px;max-width:640px;background:#ffffff;border-collapse:collapse;">
       <!-- LOGO -->
       <tr><td style="padding:32px 20px 24px;text-align:center;background:#ffffff;">
         ${chrome.logoUrl
-          ? `<img src="${esc(chrome.logoUrl)}" alt="SEPRI Group" style="height:42px;display:inline-block;" />`
+          ? `<img src="${esc(chrome.logoUrl)}" alt="SEPRI Group" width="168" height="42" style="height:42px;width:168px;max-height:42px;display:inline-block;border:0;outline:none;" />`
           : `<div style="font-weight:900;font-size:20px;color:${NAVY};letter-spacing:1px;">sepri <span style="font-size:11px;color:${TURQ};font-weight:600;">Group</span></div>`}
       </td></tr>
 
       <!-- HERO (fundo de ponta a ponta) -->
       <tr><td style="background:${NAVY};padding:28px 0;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
           <tr>
             <td width="32" style="width:32px;font-size:0;line-height:0;">&nbsp;</td>
-            <td width="72" valign="middle" style="font-size:48px;line-height:1;color:#ffffff;">${esc(heroIcon)}</td>
+            <td width="72" valign="middle" style="width:72px;font-size:48px;line-height:48px;color:#ffffff;">${esc(heroIcon)}</td>
             <td valign="middle">
               ${heroTag ? renderHeroTag(heroTag) : ""}
               <h1 style="color:#ffffff;font-size:24px;line-height:1.25;margin:0;font-weight:800;">${esc(heroTitle)}</h1>
@@ -163,50 +174,15 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
 
       <!-- CTA -->
       ${finalCta ? renderCta(finalCta) : ""}
-
-      <tr><td><hr style="border:none;border-top:1px solid ${BORDER};margin:0 40px;" /></td></tr>
-
-      <!-- FOOTER -->
-      <tr><td style="background:${LIGHT_BG};padding:32px 40px 24px;text-align:center;font-size:12px;color:#5a6472;line-height:1.8;">
-        <strong style="display:block;font-size:13px;color:${INK};margin-bottom:12px;">SEPRI - Medicina no Trabalho Lda</strong>
-        <div style="text-decoration:underline;">Avenida da Igreja nº42, 1 Dto, 1700-239 Lisboa</div>
-        <div style="text-decoration:underline;">Rua Dr Loureiro Amorim nº183, 4710-487 Braga</div>
-        <div style="text-decoration:underline;">Av. Kim Il Sung, no. 1078, Maputo, Moçambique</div>
-        <div style="text-decoration:underline;">Rua 6-1L, Bairro da Boavista, Luanda, Angola</div>
-        <div style="margin-top:6px;">www.sepri.pt · comunicacao@sepri.pt</div>
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px auto;">
-          <tr>
-            ${renderSocialIcon("https://www.linkedin.com/company/sepri-group/", "linkedin", "LinkedIn")}
-            ${renderSocialIcon("https://www.instagram.com/sepri_group/", "instagram", "Instagram")}
-            ${renderSocialIcon("https://www.facebook.com/grupo.sepri", "facebook", "Facebook")}
-            ${renderSocialIcon("https://www.youtube.com/@seprigroup", "youtube", "YouTube")}
-          </tr>
-        </table>
-        <div>Este e-mail foi enviado para {{ contact.EMAIL }}.</div>
-        <div style="font-size:11px;color:#8a93a0;margin-top:16px;">${chrome.disclaimerHtml}</div>
-        <div style="font-size:11px;color:#8a93a0;margin-top:16px;text-align:left;line-height:1.5;">
-          <strong style="display:block;color:#5a6472;margin-bottom:4px;">Porque recebeu este e-mail?</strong>
-          A presente comunicação é feita na prossecução do legítimo interesse da SEPRI MT Lda, em enviar informação sobre as suas atividades e serviços, sem com isso afetar quaisquer interesses ou direitos e liberdades fundamentais, tendo o destinatário o direito de se opor a qualquer momento ao tratamento dos seus dados pessoais cancelando a sua subscrição no link abaixo ou enviando um pedido para dpo@sepri.pt. Para mais informações consulte a nossa política de privacidade.
-        </div>
-        <a href="{{ unsubscribe }}" style="display:inline-block;margin-top:10px;text-decoration:underline;color:#5a6472;font-size:12px;">Cancelar subscrição</a>
-      </td></tr>
     </table>
   </td></tr>
 </table>
+<!--[if mso]>
+</td></tr></table>
+<![endif]-->
 </body>
 </html>`;
 }
-
-function renderSocialIcon(href: string, slug: string, label: string): string {
-  const src = SOCIAL_ICON_DATA_URIS[slug] ?? "";
-  return `<td width="28" height="28" align="center" valign="middle" style="width:28px;height:28px;border-radius:50%;background:${INK};text-align:center;vertical-align:middle;padding:0;">
-    <a href="${esc(href)}" target="_blank" rel="noopener" style="display:block;line-height:0;text-decoration:none;">
-      <img src="${src}" width="14" height="14" alt="${esc(label)}" style="display:inline-block;vertical-align:middle;border:0;" />
-    </a>
-  </td>
-  <td width="8" style="width:8px;font-size:0;line-height:0;">&nbsp;</td>`;
-}
-
 
 function renderHeroTag(tag: string): string {
   return `<div style="margin:0 0 10px;">
@@ -229,7 +205,7 @@ function renderIntroBlock(paragraphs: string[]): string {
 
 function renderHighlightBlock(resource: NewsletterResource): string {
   const img = resource.imageUrl
-    ? `<img src="${esc(resource.imageUrl)}" alt="${esc(resource.heading)}" style="display:block;max-width:220px;width:100%;height:auto;margin:0 auto;border-radius:6px;" />`
+    ? `<img src="${esc(resource.imageUrl)}" alt="${esc(resource.heading)}" width="220" style="display:block;max-width:220px;width:100%;height:auto;margin:0 auto;border-radius:6px;border:0;outline:none;" />`
     : `<div style="background:${BORDER};height:120px;width:220px;margin:0 auto;border-radius:6px;"></div>`;
   const media = resource.linkUrl
     ? `<a href="${esc(resource.linkUrl)}" style="text-decoration:none;">${img}</a>`

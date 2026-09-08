@@ -33,6 +33,14 @@ export function attachImageEditing(doc: Document): () => void {
     overlay.appendChild(h);
     handles.push(h);
   }
+
+  const deleteBtn = doc.createElement("div");
+  deleteBtn.dataset["role"] = "delete";
+  deleteBtn.title = "Eliminar imagem";
+  deleteBtn.style.cssText =
+    "position:absolute;top:0;right:0;width:22px;height:22px;margin:-11px -11px 0 0;background:#dc2626;border:2px solid #ffffff;border-radius:50%;pointer-events:auto;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#ffffff;font-size:13px;line-height:1;font-family:Arial,sans-serif;";
+  deleteBtn.textContent = "✕";
+  overlay.appendChild(deleteBtn);
   body.appendChild(overlay);
 
   let selected: HTMLImageElement | null = null;
@@ -74,6 +82,21 @@ export function attachImageEditing(doc: Document): () => void {
       overlay.style.display = "none";
     }
   }
+
+  function removeSelected() {
+    if (!selected) return;
+    const img = selected;
+    select(null);
+    img.remove();
+  }
+
+  function onDeleteBtnClick(e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    removeSelected();
+  }
+  deleteBtn.addEventListener("mousedown", (e) => e.stopPropagation());
+  deleteBtn.addEventListener("click", onDeleteBtnClick);
 
   function onMouseDown(e: MouseEvent) {
     const target = e.target as HTMLElement | null;
@@ -165,6 +188,9 @@ export function attachImageEditing(doc: Document): () => void {
       selected.style.top = `${px(selected.style.top || "0") + delta[1]}px`;
       updateOverlay();
       e.preventDefault();
+    } else if (e.key === "Delete" || e.key === "Backspace") {
+      removeSelected();
+      e.preventDefault();
     } else if (e.key === "Escape") {
       select(null);
     }
@@ -186,6 +212,7 @@ export function attachImageEditing(doc: Document): () => void {
     doc.removeEventListener("keydown", onKeyDown, true);
     doc.defaultView?.removeEventListener("scroll", onScrollOrResize, true);
     doc.defaultView?.removeEventListener("resize", onScrollOrResize);
+    deleteBtn.removeEventListener("click", onDeleteBtnClick);
     overlay.remove();
     doc.querySelectorAll("img[draggable='false']").forEach((el) => el.removeAttribute("draggable"));
   };

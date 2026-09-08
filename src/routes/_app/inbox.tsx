@@ -23,6 +23,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Info,
@@ -51,6 +59,8 @@ function InboxPage() {
   const [showManual, setShowManual] = useState(false);
   const [manualSourceId, setManualSourceId] = useState("");
   const [manualUrl, setManualUrl] = useState("");
+  const [showGuidance, setShowGuidance] = useState(false);
+  const [guidance, setGuidance] = useState("");
   const qc = useQueryClient();
 
   const { data: sources } = useQuery({ queryKey: ["sources"], queryFn: () => listSources() });
@@ -110,11 +120,13 @@ function InboxPage() {
     onError: (e: Error) => toast.error(`Scan falhou: ${e.message}`),
   });
   const generateMut = useMutation({
-    mutationFn: (ids: string[]) =>
-      generateNewsletterFromSelection({ data: { detection_ids: ids } }),
+    mutationFn: ({ ids, guidance }: { ids: string[]; guidance?: string }) =>
+      generateNewsletterFromSelection({ data: { detection_ids: ids, guidance } }),
     onSuccess: (r) => {
       toast.success(`Newsletter gerada com ${r.count} notícia(s).`);
       clearSelection();
+      setGuidance("");
+      setShowGuidance(false);
       qc.invalidateQueries({ queryKey: ["detections"] });
       qc.invalidateQueries({ queryKey: ["newsletters"] });
     },
@@ -257,7 +269,7 @@ function InboxPage() {
           <div className="ml-auto">
             <Button
               size="sm"
-              onClick={() => generateMut.mutate(Array.from(selected))}
+              onClick={() => setShowGuidance(true)}
               disabled={selected.size === 0 || generateMut.isPending}
             >
               {generateMut.isPending ? (
@@ -270,6 +282,43 @@ function InboxPage() {
           </div>
         </div>
       )}
+
+      <Dialog open={showGuidance} onOpenChange={setShowGuidance}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Gerar newsletter</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Orientação para a IA (opcional)</Label>
+            <Textarea
+              rows={5}
+              placeholder='Ex: "foca-te no impacto para PMEs", "tom mais direto e curto", "junta as duas primeiras notícias na mesma secção"...'
+              value={guidance}
+              onChange={(e) => setGuidance(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Deixa em branco para usar o estilo habitual da SEPRI. Isto não substitui os factos
+              das notícias — só orienta o tom, foco ou estrutura da newsletter.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowGuidance(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => generateMut.mutate({ ids: Array.from(selected), guidance })}
+              disabled={generateMut.isPending}
+            >
+              {generateMut.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4 mr-2" />
+              )}
+              Gerar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {isLoading && <p className="text-muted-foreground">A carregar…</p>}
 

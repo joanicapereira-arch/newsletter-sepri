@@ -18,7 +18,7 @@ function secret(): string {
   return s;
 }
 
-export type TokenAction = "approve" | "reject";
+export type TokenAction = "approve" | "reject" | "priority";
 
 export function signToken(detectionId: string, action: TokenAction): string {
   const expires = Date.now() + TOKEN_TTL_DAYS * 86400_000;
@@ -39,7 +39,7 @@ export function verifyToken(
     if (sig.length !== expected.length) return null;
     if (!timingSafeEqual(sig, expected)) return null;
     const [detectionId, action, expiresStr] = payload.split("|");
-    if (!detectionId || (action !== "approve" && action !== "reject")) return null;
+    if (!detectionId || (action !== "approve" && action !== "reject" && action !== "priority")) return null;
     const expires = Number(expiresStr);
     if (!expires || Date.now() > expires) return null;
     return { detectionId, action };
@@ -51,6 +51,7 @@ export function verifyToken(
 export function buildApprovalUrls(origin: string, detectionId: string) {
   return {
     approveUrl: `${origin}/api/public/approve?token=${encodeURIComponent(signToken(detectionId, "approve"))}`,
+    priorityUrl: `${origin}/api/public/priority?token=${encodeURIComponent(signToken(detectionId, "priority"))}`,
     rejectUrl: `${origin}/api/public/reject?token=${encodeURIComponent(signToken(detectionId, "reject"))}`,
   };
 }

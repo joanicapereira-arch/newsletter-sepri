@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { listSources, upsertSource, deleteSource } from "@/lib/sources.functions";
 import { Card, CardContent } from "@/components/ui/card";
@@ -173,6 +173,26 @@ function Editor({
   onCancel: () => void;
   pending: boolean;
 }) {
+  // Texto livre desacoplado do array — corrige o bug em que escrever "," ou um
+  // espaço a seguir era imediatamente removido porque o valor do input era
+  // sempre recalculado a partir de draft.keywords.join(", ") a cada tecla,
+  // impedindo começar a escrever uma nova palavra-chave.
+  const [kwText, setKwText] = useState((draft.keywords ?? []).join(", "));
+  useEffect(() => {
+    setKwText((draft.keywords ?? []).join(", "));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.id]);
+
+  function commitKeywords(text: string) {
+    onChange({
+      ...draft,
+      keywords: text
+        .split(",")
+        .map((k) => k.trim())
+        .filter(Boolean),
+    });
+  }
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
@@ -196,17 +216,25 @@ function Editor({
       <div>
         <Label>Palavras-chave (separadas por vírgula)</Label>
         <Input
-          value={(draft.keywords ?? []).join(", ")}
-          onChange={(e) =>
-            onChange({
-              ...draft,
-              keywords: e.target.value
-                .split(",")
-                .map((k) => k.trim())
-                .filter(Boolean),
-            })
-          }
+          value={kwText}
+          onChange={(e) => {
+            setKwText(e.target.value);
+            commitKeywords(e.target.value);
+          }}
+          onBlur={(e) => {
+            // ao sair do campo, normaliza o texto apresentado (remove vírgulas a mais, espaços, etc.)
+            const clean = e.target.value
+              .split(",")
+              .map((k) => k.trim())
+              .filter(Boolean);
+            setKwText(clean.join(", "));
+          }}
+          placeholder="ex: legionella, saúde ocupacional, incêndios"
         />
+        <p className="text-xs text-muted-foreground mt-1">
+          Escreve uma palavra-chave, vírgula, a próxima, etc. Quantas mais palavras-chave
+          relevantes, melhor a pesquisa da IA nesta fonte.
+        </p>
       </div>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

@@ -30,6 +30,8 @@ import {
   Image as ImageIcon,
   Trash2,
   RotateCcw,
+  Undo2,
+  Redo2,
 } from "lucide-react";
 import { attachImageEditing } from "@/lib/newsletter-image-editing";
 
@@ -388,6 +390,13 @@ function NewslettersPage() {
                     <Underline className="w-4 h-4" />
                   </Button>
                   <span className="w-px h-6 bg-border mx-1" />
+                  <Button size="sm" variant="ghost" aria-label="Desfazer" onClick={() => exec("undo")}>
+                    <Undo2 className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" aria-label="Refazer" onClick={() => exec("redo")}>
+                    <Redo2 className="w-4 h-4" />
+                  </Button>
+                  <span className="w-px h-6 bg-border mx-1" />
                   <Button size="sm" variant="ghost" aria-label="Alinhar à esquerda" onClick={() => exec("justifyLeft")}>
                     <AlignLeft className="w-4 h-4" />
                   </Button>
@@ -420,6 +429,7 @@ function NewslettersPage() {
                     onChange={(e) => e.target.value && execWithSavedSelection("fontName", e.target.value)}
                   >
                     <option value="">Tipo de letra</option>
+                    <option value="Open Sans">Open Sans</option>
                     <option value="Arial">Arial</option>
                     <option value="Helvetica">Helvetica</option>
                     <option value="Georgia">Georgia</option>
@@ -468,7 +478,7 @@ function NewslettersPage() {
                   />
                 </div>
                 <div className="px-4 py-2 text-xs font-medium bg-primary/10 text-primary border-b">
-                  Modo de edição — seleciona o texto e usa a barra acima. Clica numa imagem para a selecionar: arrasta-a para a mover livremente, usa os cantos para redimensionar (ou as setas do teclado para ajustes finos).
+                  Modo de edição — seleciona o texto e usa a barra acima. Clica numa imagem para a selecionar: arrasta-a para a mover livremente, usa os cantos para redimensionar (ou as setas do teclado para ajustes finos), e a tecla Delete/Backspace ou o ✕ vermelho no canto para a eliminar.
                 </div>
               </>
             )}

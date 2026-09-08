@@ -18,7 +18,16 @@ export const listDetections = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const admin = await getAdmin();
-    let q = admin.from("detections").select("*").order("detected_at", { ascending: false }).limit(200);
+    const orderCol =
+      data.status === "informativo" || data.status === "prioritario" || data.status === "rejected"
+        ? "decided_at"
+        : "detected_at";
+    let q = admin
+      .from("detections")
+      .select("*")
+      .order(orderCol, { ascending: false, nullsFirst: false })
+      .order("detected_at", { ascending: false })
+      .limit(200);
     if (data.status !== "all") q = q.eq("status", data.status);
     const { data: rows, error } = await q;
     if (error) {
@@ -121,7 +130,12 @@ export const addManualDetection = createServerFn({ method: "POST" })
 
 export const generateNewsletterFromSelection = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
-    z.object({ detection_ids: z.array(z.string().uuid()).min(1).max(20) }).parse(d),
+    z
+      .object({
+        detection_ids: z.array(z.string().uuid()).min(1).max(20),
+        guidance: z.string().trim().max(2000).optional(),
+      })
+      .parse(d),
   )
   .handler(async ({ data }) => {
     const admin = await getAdmin();
@@ -151,6 +165,7 @@ export const generateNewsletterFromSelection = createServerFn({ method: "POST" }
         logo_url: cfg?.logo_url ?? "",
         disclaimer_html: cfg?.disclaimer_html ?? "",
       },
+      data.guidance,
     );
 
     await admin.from("newsletters").insert({

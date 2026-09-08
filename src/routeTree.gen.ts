@@ -9,39 +9,30 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AppSourcesRouteImport } from './routes/_app/sources'
-import { Route as AppNewslettersRouteImport } from './routes/_app/newsletters'
-import { Route as AppInboxRouteImport } from './routes/_app/inbox'
-import { Route as AppHistoryRouteImport } from './routes/_app/history'
+import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as AppConfigRouteImport } from './routes/_app/config'
-import { Route as ApiPublicRejectRouteImport } from './routes/api/public/reject'
-import { Route as ApiPublicCronScanRouteImport } from './routes/api/public/cron-scan'
+import { Route as AppHistoryRouteImport } from './routes/_app/history'
+import { Route as AppInboxRouteImport } from './routes/_app/inbox'
+import { Route as AppNewslettersRouteImport } from './routes/_app/newsletters'
+import { Route as AppSourcesRouteImport } from './routes/_app/sources'
 import { Route as ApiPublicApproveRouteImport } from './routes/api/public/approve'
+import { Route as ApiPublicCronScanRouteImport } from './routes/api/public/cron-scan'
+import { Route as ApiPublicPriorityRouteImport } from './routes/api/public/priority'
+import { Route as ApiPublicRejectRouteImport } from './routes/api/public/reject'
 
-const AppRouteRoute = AppRouteRouteImport.update({
-  id: '/_app',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppSourcesRoute = AppSourcesRouteImport.update({
-  id: '/sources',
-  path: '/sources',
-  getParentRoute: () => AppRouteRoute,
+const AppRouteRoute = AppRouteRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AppNewslettersRoute = AppNewslettersRouteImport.update({
-  id: '/newsletters',
-  path: '/newsletters',
-  getParentRoute: () => AppRouteRoute,
-} as any)
-const AppInboxRoute = AppInboxRouteImport.update({
-  id: '/inbox',
-  path: '/inbox',
+const AppConfigRoute = AppConfigRouteImport.update({
+  id: '/config',
+  path: '/config',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppHistoryRoute = AppHistoryRouteImport.update({
@@ -49,14 +40,24 @@ const AppHistoryRoute = AppHistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => AppRouteRoute,
 } as any)
-const AppConfigRoute = AppConfigRouteImport.update({
-  id: '/config',
-  path: '/config',
+const AppInboxRoute = AppInboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
   getParentRoute: () => AppRouteRoute,
 } as any)
-const ApiPublicRejectRoute = ApiPublicRejectRouteImport.update({
-  id: '/api/public/reject',
-  path: '/api/public/reject',
+const AppNewslettersRoute = AppNewslettersRouteImport.update({
+  id: '/newsletters',
+  path: '/newsletters',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppSourcesRoute = AppSourcesRouteImport.update({
+  id: '/sources',
+  path: '/sources',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const ApiPublicApproveRoute = ApiPublicApproveRouteImport.update({
+  id: '/api/public/approve',
+  path: '/api/public/approve',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicCronScanRoute = ApiPublicCronScanRouteImport.update({
@@ -64,9 +65,14 @@ const ApiPublicCronScanRoute = ApiPublicCronScanRouteImport.update({
   path: '/api/public/cron-scan',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicApproveRoute = ApiPublicApproveRouteImport.update({
-  id: '/api/public/approve',
-  path: '/api/public/approve',
+const ApiPublicPriorityRoute = ApiPublicPriorityRouteImport.update({
+  id: '/api/public/priority',
+  path: '/api/public/priority',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicRejectRoute = ApiPublicRejectRouteImport.update({
+  id: '/api/public/reject',
+  path: '/api/public/reject',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/sources': typeof AppSourcesRoute
   '/api/public/approve': typeof ApiPublicApproveRoute
   '/api/public/cron-scan': typeof ApiPublicCronScanRoute
+  '/api/public/priority': typeof ApiPublicPriorityRoute
   '/api/public/reject': typeof ApiPublicRejectRoute
 }
 export interface FileRoutesByTo {
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/sources': typeof AppSourcesRoute
   '/api/public/approve': typeof ApiPublicApproveRoute
   '/api/public/cron-scan': typeof ApiPublicCronScanRoute
+  '/api/public/priority': typeof ApiPublicPriorityRoute
   '/api/public/reject': typeof ApiPublicRejectRoute
 }
 export interface FileRoutesById {
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/_app/sources': typeof AppSourcesRoute
   '/api/public/approve': typeof ApiPublicApproveRoute
   '/api/public/cron-scan': typeof ApiPublicCronScanRoute
+  '/api/public/priority': typeof ApiPublicPriorityRoute
   '/api/public/reject': typeof ApiPublicRejectRoute
 }
 export interface FileRouteTypes {
@@ -116,6 +125,7 @@ export interface FileRouteTypes {
     | '/sources'
     | '/api/public/approve'
     | '/api/public/cron-scan'
+    | '/api/public/priority'
     | '/api/public/reject'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/sources'
     | '/api/public/approve'
     | '/api/public/cron-scan'
+    | '/api/public/priority'
     | '/api/public/reject'
   id:
     | '__root__'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/_app/sources'
     | '/api/public/approve'
     | '/api/public/cron-scan'
+    | '/api/public/priority'
     | '/api/public/reject'
   fileRoutesById: FileRoutesById
 }
@@ -147,18 +159,12 @@ export interface RootRouteChildren {
   AppRouteRoute: typeof AppRouteRouteWithChildren
   ApiPublicApproveRoute: typeof ApiPublicApproveRoute
   ApiPublicCronScanRoute: typeof ApiPublicCronScanRoute
+  ApiPublicPriorityRoute: typeof ApiPublicPriorityRoute
   ApiPublicRejectRoute: typeof ApiPublicRejectRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/_app': {
-      id: '/_app'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AppRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -166,25 +172,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/sources': {
-      id: '/_app/sources'
-      path: '/sources'
-      fullPath: '/sources'
-      preLoaderRoute: typeof AppSourcesRouteImport
-      parentRoute: typeof AppRouteRoute
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_app/newsletters': {
-      id: '/_app/newsletters'
-      path: '/newsletters'
-      fullPath: '/newsletters'
-      preLoaderRoute: typeof AppNewslettersRouteImport
-      parentRoute: typeof AppRouteRoute
-    }
-    '/_app/inbox': {
-      id: '/_app/inbox'
-      path: '/inbox'
-      fullPath: '/inbox'
-      preLoaderRoute: typeof AppInboxRouteImport
+    '/_app/config': {
+      id: '/_app/config'
+      path: '/config'
+      fullPath: '/config'
+      preLoaderRoute: typeof AppConfigRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/_app/history': {
@@ -194,18 +193,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppHistoryRouteImport
       parentRoute: typeof AppRouteRoute
     }
-    '/_app/config': {
-      id: '/_app/config'
-      path: '/config'
-      fullPath: '/config'
-      preLoaderRoute: typeof AppConfigRouteImport
+    '/_app/inbox': {
+      id: '/_app/inbox'
+      path: '/inbox'
+      fullPath: '/inbox'
+      preLoaderRoute: typeof AppInboxRouteImport
       parentRoute: typeof AppRouteRoute
     }
-    '/api/public/reject': {
-      id: '/api/public/reject'
-      path: '/api/public/reject'
-      fullPath: '/api/public/reject'
-      preLoaderRoute: typeof ApiPublicRejectRouteImport
+    '/_app/newsletters': {
+      id: '/_app/newsletters'
+      path: '/newsletters'
+      fullPath: '/newsletters'
+      preLoaderRoute: typeof AppNewslettersRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/sources': {
+      id: '/_app/sources'
+      path: '/sources'
+      fullPath: '/sources'
+      preLoaderRoute: typeof AppSourcesRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/api/public/approve': {
+      id: '/api/public/approve'
+      path: '/api/public/approve'
+      fullPath: '/api/public/approve'
+      preLoaderRoute: typeof ApiPublicApproveRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/cron-scan': {
@@ -215,11 +228,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicCronScanRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/approve': {
-      id: '/api/public/approve'
-      path: '/api/public/approve'
-      fullPath: '/api/public/approve'
-      preLoaderRoute: typeof ApiPublicApproveRouteImport
+    '/api/public/priority': {
+      id: '/api/public/priority'
+      path: '/api/public/priority'
+      fullPath: '/api/public/priority'
+      preLoaderRoute: typeof ApiPublicPriorityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/reject': {
+      id: '/api/public/reject'
+      path: '/api/public/reject'
+      fullPath: '/api/public/reject'
+      preLoaderRoute: typeof ApiPublicRejectRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -250,6 +270,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
   ApiPublicApproveRoute: ApiPublicApproveRoute,
   ApiPublicCronScanRoute: ApiPublicCronScanRoute,
+  ApiPublicPriorityRoute: ApiPublicPriorityRoute,
   ApiPublicRejectRoute: ApiPublicRejectRoute,
 }
 export const routeTree = rootRouteImport

@@ -15,7 +15,7 @@ export async function sendEmail(opts: { to: string; subject: string; html: strin
   if (!apiKey) {
     return { ok: false, reason: "RESEND_API_KEY em falta nas secrets do projeto." };
   }
-  const from = process.env.RESEND_FROM || "onboarding@resend.dev";
+  const from = process.env.RESEND_FROM || "SEPRI Legal Monitor <onboarding@resend.dev>";
 
   try {
     const res = await fetch("https://api.resend.com/emails", {

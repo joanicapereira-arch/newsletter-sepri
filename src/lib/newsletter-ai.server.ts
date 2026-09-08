@@ -439,12 +439,18 @@ export async function generateNewsletterHtml(d: DetectionInput, chrome: ChromeIn
 export async function generateCombinedNewsletterHtml(
   items: DetectionInput[],
   chrome: ChromeInput,
+  guidance?: string,
 ) {
   const fullTexts = await Promise.all(items.map((it) => fetchFullArticleText(it.source_url)));
 
   let subject = items.length === 1 ? items[0].title.slice(0, 80) : "Atualizações SEPRI";
   let intro: NewsletterDocument["composite_intro"] | undefined;
   let enrichedItems: NewsletterItemContent[];
+
+  const guidanceBlock =
+    guidance && guidance.trim()
+      ? `\n\nORIENTAÇÃO ESPECÍFICA DADA PELO UTILIZADOR PARA ESTA NEWSLETTER (segue-a de perto, tem prioridade sobre as convenções por defeito quando houver conflito, mas nunca inventes factos que ela não sustente):\n"""\n${guidance.trim()}\n"""`
+      : "";
 
   try {
     const output = await callAiStructured<{
@@ -471,7 +477,7 @@ JSON com as chaves "subject", "intro" (objeto com overtitle opcional, title, lea
 intro_paragraphs (array de strings), sections (array com heading, icon, paragraphs, bullets),
 guidelines (heading, intro, items), closing_paragraph, cta (label, url).
 Mantém a ordem original das atualizações. Usa sempre o texto completo do artigo fornecido
-para cada atualização, quando disponível.`,
+para cada atualização, quando disponível.${guidanceBlock}`,
       prompt: `Atualizações a incluir (pela ordem):
 ${items
   .map(
