@@ -18,14 +18,10 @@ export const listDetections = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const admin = await getAdmin();
-    const orderCol =
-      data.status === "informativo" || data.status === "prioritario" || data.status === "rejected"
-        ? "decided_at"
-        : "detected_at";
     let q = admin
       .from("detections")
       .select("*")
-      .order(orderCol, { ascending: false, nullsFirst: false })
+      .order("published_at", { ascending: false, nullsFirst: false })
       .order("detected_at", { ascending: false })
       .limit(200);
     if (data.status !== "all") q = q.eq("status", data.status);

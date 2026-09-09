@@ -97,11 +97,6 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
     ? doc.items.map(renderCompositeItem).join("\n")
     : renderItemBody(doc.items[0]);
 
-  const DEFAULT_CTA: NewsletterCta = {
-    label: "SOLICITE UMA AVALIAÇÃO PERSONALIZADA",
-    url: "https://www.sepri.pt/contactos",
-  };
-  const finalCta = doc.cta ?? (!isComposite ? doc.items[0]?.cta : undefined) ?? DEFAULT_CTA;
   const highlightRows = doc.items
     .map((it) => it.resource)
     .filter((r): r is NewsletterResource => !!r)
@@ -169,8 +164,7 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
       <!-- DESTAQUE (recurso/imagem associado, ex: panfleto para descarregar) -->
       ${highlightRows}
 
-      <!-- CTA -->
-      ${finalCta ? renderCta(finalCta) : ""}
+      <!-- CTA removido a pedido -->
     </table>
   </td></tr>
 </table>
@@ -212,19 +206,6 @@ function renderHighlightBlock(resource: NewsletterResource): string {
     ${media}
   </td></tr>`;
 }
-
-function renderCta(cta: NewsletterCta): string {
-  const href = cta.url ?? "https://www.sepri.pt/contactos";
-  return `<tr><td style="padding:8px 40px 32px;background:#ffffff;">
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
-      <tr><td height="48" align="center" valign="middle" style="height:48px;line-height:48px;background:${NAVY};border-radius:20px;padding:0 32px;text-align:center;vertical-align:middle;">
-        <a href="${esc(href)}" style="color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;line-height:48px;display:inline-block;vertical-align:middle;">${esc(cta.label)}</a>
-      </td></tr>
-    </table>
-  </td></tr>`;
-
-}
-
 
 function renderItemBody(item: NewsletterItemContent | undefined): string {
   if (!item) return "";

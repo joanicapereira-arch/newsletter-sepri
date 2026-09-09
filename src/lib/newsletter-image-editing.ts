@@ -90,17 +90,16 @@ export function attachImageEditing(doc: Document): () => void {
     img.remove();
   }
 
-  function onDeleteBtnClick(e: MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    removeSelected();
-  }
-  deleteBtn.addEventListener("mousedown", (e) => e.stopPropagation());
-  deleteBtn.addEventListener("click", onDeleteBtnClick);
-
   function onMouseDown(e: MouseEvent) {
     const target = e.target as HTMLElement | null;
     if (!target) return;
+
+    if (target.dataset && target.dataset["role"] === "delete") {
+      e.preventDefault();
+      e.stopPropagation();
+      removeSelected();
+      return;
+    }
 
     if (target.dataset && target.dataset["corner"] && selected) {
       mode = "resize";
@@ -212,7 +211,6 @@ export function attachImageEditing(doc: Document): () => void {
     doc.removeEventListener("keydown", onKeyDown, true);
     doc.defaultView?.removeEventListener("scroll", onScrollOrResize, true);
     doc.defaultView?.removeEventListener("resize", onScrollOrResize);
-    deleteBtn.removeEventListener("click", onDeleteBtnClick);
     overlay.remove();
     doc.querySelectorAll("img[draggable='false']").forEach((el) => el.removeAttribute("draggable"));
   };

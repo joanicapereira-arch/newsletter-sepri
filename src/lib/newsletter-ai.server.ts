@@ -162,14 +162,23 @@ ESTRUTURA OBRIGATÓRIA de cada newsletter (segue por esta ordem):
    Escolhe apenas serviços que fazem sentido para a notícia.
 9. Bloco ORIENTAÇÕES destacado — preenche sempre que o tema permitir recomendações práticas
    (ver regra no schema).
-10. Parágrafo de fecho curto que apela à ação.
-11. CTA final com label em maiúsculas, ex: "PEÇA UMA PROPOSTA PERSONALIZADA",
-    "AGENDE UMA REUNIÃO", "SAIBA MAIS".
+10. Parágrafo de fecho curto que sintetiza a mensagem principal (sem botão de ação — não é usado).
 
 Cada secção deve ter um ícone/emoji relevante (📋, 🏥, 💼, 📉, 🛡️, 💡, ✅, 🫁, 🌿, ⚖️, 📅…).
 NÃO inventes números, estatísticas ou factos concretos que não constam da fonte — mas
 as orientações/recomendações da SEPRI podem (e devem) ser conselhos profissionais
-genuínos mesmo que não estejam escritos literalmente na fonte.`;
+genuínos mesmo que não estejam escritos literalmente na fonte.
+
+EXIGÊNCIA DE PROFUNDIDADE (muito importante, é um erro grave não cumprir isto):
+- A introdução deve ter pelo menos 2 parágrafos substanciais (não uma frase solta).
+- Tens de produzir NO MÍNIMO 4 secções de corpo (incluindo a de "Como a SEPRI pode ajudar"),
+  cada uma com pelo menos 3-5 bullets DESENVOLVIDOS (frase completa com contexto, não uma
+  palavra ou título solto) ou 2 parágrafos completos.
+- O bloco de ORIENTAÇÕES deve ter pelo menos 4-6 recomendações práticas concretas.
+- Não te limites a resumir a fonte numa frase por bullet — desenvolve cada ponto com o
+  "porquê" e o impacto prático para a empresa, mesmo que isso signifique elaborar mais do
+  que o texto original. O resultado esperado é uma newsletter longa e substancial, ao nível
+  de um artigo completo — nunca um resumo curto.`;
 
 function mapResource(raw: { heading: string; image_url?: string; link_url?: string } | undefined) {
   if (!raw) return undefined;
@@ -346,6 +355,23 @@ async function fetchFullArticleText(url: string | null | undefined): Promise<str
   }
 }
 
+/**
+ * Deteta, de forma determinística (sem depender da IA obedecer), se a orientação do
+ * utilizador pede um título literal específico — e extrai-o. Cobre frases como
+ * "o título deve ser X", "título: X", "quero que o título seja X".
+ */
+function extractTitleOverride(guidance?: string): string | null {
+  if (!guidance || !guidance.trim()) return null;
+  const re =
+    /t[íi]tulo[^\n:]*?(?:seja|fosse|devia ser|deve ser|ficasse|fique|ficar|para|:)\s*[:\-]?\s*["'“]?([^"'”\n.]{3,150})["'”]?/i;
+  const m = guidance.match(re);
+  if (m?.[1]) {
+    const cleaned = m[1].trim().replace(/[.:;,]+$/, "");
+    if (cleaned.length >= 3) return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+  return null;
+}
+
 function fallbackItemContent(d: DetectionInput, fullText?: string | null): NewsletterItemContent {
   const candidate = fullText && fullText.length > d.summary.length ? fullText : d.summary;
   const source = cleanArticleMarkdown(candidate); // defesa extra: nunca deixar sintaxe markdown passar
@@ -515,15 +541,16 @@ Redige a newsletter agregada, desenvolvendo cada atualização com substância r
             },
             required: ["items"],
           },
-          maxTokens: 8192,
+          maxTokens: 16000,
           system: `Vais receber uma newsletter já redigida, em JSON (chaves: subject, intro, items), e uma
 instrução dada pelo utilizador. A tua ÚNICA tarefa é aplicar essa instrução ao conteúdo e
 devolver o MESMO objeto JSON, com a mesma estrutura e chaves, alterado apenas onde a
-instrução pedir. Não apagues nem esvazies secções, guidelines ou cta que a instrução não
-mencione — mantém tudo o resto exatamente igual. Se a instrução pedir um título específico,
-usa-o literalmente no campo "title" do(s) item(ns) relevante(s) — e também em "subject" e em
-"intro.title" se existirem. Se pedir um tom, foco, comprimento ou estrutura diferente,
-reescreve o conteúdo necessário para cumprir isso, sem inventar factos novos.`,
+instrução pedir. Não apagues nem esvazies secções ou guidelines que a instrução não
+mencione — mantém tudo o resto exatamente igual, incluindo o nível de detalhe e comprimento.
+Se a instrução pedir um título específico, usa-o literalmente no campo "title" do(s) item(ns)
+relevante(s) — e também em "subject" e em "intro.title" se existirem. Se pedir um tom, foco,
+comprimento ou estrutura diferente, reescreve o conteúdo necessário para cumprir isso, sem
+inventar factos novos.`,
           prompt: `Instrução do utilizador a cumprir exatamente:
 """
 ${guidance.trim()}
@@ -562,6 +589,13 @@ Devolve o JSON revisto, com a instrução aplicada.`,
     intro = items.length > 1
       ? { title: "Atualizações SEPRI", lead: "Resumo das últimas atualizações relevantes." }
       : undefined;
+  }
+
+  const titleOverride = extractTitleOverride(guidance);
+  if (titleOverride) {
+    subject = titleOverride.slice(0, 80);
+    if (intro) intro = { ...intro, title: titleOverride };
+    if (enrichedItems[0]) enrichedItems[0] = { ...enrichedItems[0], title: titleOverride };
   }
 
   const doc: NewsletterDocument = {
