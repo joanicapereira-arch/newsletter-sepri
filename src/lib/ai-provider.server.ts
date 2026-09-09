@@ -9,15 +9,13 @@ export function requireGeminiApiKey(): string {
 }
 
 /** Modelo usado na triagem diária das 6 fontes — Flash-Lite tem quota gratuita
- * diária muito mais alta do que o gemini-3.6-flash (que se revelou limitado a
- * apenas 20 pedidos/dia na prática), sendo mais do que suficiente para
- * classificação/extração. */
-export const FAST_MODEL = "gemini-2.5-flash-lite";
+ * diária muito mais alta, sendo mais do que suficiente para classificação/extração. */
+export const FAST_MODEL = "gemini-3.5-flash-lite";
 
-/** Modelo usado na redação da newsletter — mantém mais qualidade que o Lite,
- * com quota gratuita diária historicamente bastante mais generosa que o
- * gemini-3.6-flash. */
-export const QUALITY_MODEL = "gemini-2.5-flash";
+/** Modelo usado na redação da newsletter — mesma geração do FAST_MODEL (evita
+ * repetir o problema de "modelo já não disponível para novos utilizadores"),
+ * com mais qualidade que o Lite. */
+export const QUALITY_MODEL = "gemini-3.5-flash";
 
 interface AiStructuredOptions {
   model: string;
