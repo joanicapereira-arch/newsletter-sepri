@@ -138,6 +138,33 @@ Extrai novidades relevantes dos últimos ${windowDays} dias, cada uma com a sua 
     }),
   );
 
+  const MONTHS_PT: Record<string, string> = {
+    janeiro: "01", fevereiro: "02", março: "03", marco: "03", abril: "04", maio: "05", junho: "06",
+    julho: "07", agosto: "08", setembro: "09", outubro: "10", novembro: "11", dezembro: "12",
+  };
+
+  /** Extrai uma data de publicação plausível do texto via regex, sem gastar quota de IA. */
+  function extractDateFromText(text: string): string | null {
+    const isoMatch = text.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
+    if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+
+    const slashMatch = text.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](20\d{2})\b/);
+    if (slashMatch) {
+      const [, d, m, y] = slashMatch;
+      return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+    }
+
+    const longMatch = text.match(
+      /\b(\d{1,2})\s+de\s+(janeiro|fevereiro|mar[çc]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s+de\s+(20\d{2})\b/i,
+    );
+    if (longMatch) {
+      const [, d, monthName, y] = longMatch;
+      const m = MONTHS_PT[monthName.toLowerCase()];
+      if (m) return `${y}-${m}-${d.padStart(2, "0")}`;
+    }
+    return null;
+  }
+
   await Promise.all(
     items.map(async (item) => {
       if (item.published_at || !item.source_url) return;
@@ -146,19 +173,8 @@ Extrai novidades relevantes dos últimos ${windowDays} dias, cada uma com a sua 
         const page = await firecrawlScrape(item.source_url, 150, 6000);
         const md = (page?.markdown ?? "").slice(0, 6000);
         if (!md) return;
-        const dateOut = await callAiStructured<{ published_at: string | null }>({
-          model: MODEL,
-          inputSchema: {
-            type: "object",
-            properties: { published_at: { type: "string", nullable: true } },
-            required: ["published_at"],
-          },
-          system: `Extrai a data de publicação da notícia/diploma a partir do conteúdo da página. Devolve YYYY-MM-DD ou null se mesmo não conseguires inferir. Procura por "Publicado em", "Data:", datas no formato DD/MM/AAAA, DD-MM-AAAA, ou referências como "1 de janeiro de 2025". Para diplomas do DRE usa a data do diploma.`,
-          prompt: `Título: ${item.title}\nURL: ${item.source_url}\n\nConteúdo:\n${md}`,
-        });
-        if (dateOut.published_at && /^\d{4}-\d{2}-\d{2}$/.test(dateOut.published_at)) {
-          item.published_at = dateOut.published_at;
-        }
+        const found = extractDateFromText(md);
+        if (found) item.published_at = found;
       } catch {
         /* ignora — fica null */
       }

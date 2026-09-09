@@ -8,11 +8,16 @@ export function requireGeminiApiKey(): string {
   return key;
 }
 
-/** Modelo usado tanto para a triagem diária como para a redação da newsletter —
- * o Flash já tem qualidade suficiente para ambos e mantém-se dentro do nível
- * gratuito da Google AI Studio (sem custos). */
-export const FAST_MODEL = "gemini-3.6-flash";
-export const QUALITY_MODEL = "gemini-3.6-flash";
+/** Modelo usado na triagem diária das 6 fontes — Flash-Lite tem quota gratuita
+ * diária muito mais alta do que o gemini-3.6-flash (que se revelou limitado a
+ * apenas 20 pedidos/dia na prática), sendo mais do que suficiente para
+ * classificação/extração. */
+export const FAST_MODEL = "gemini-2.5-flash-lite";
+
+/** Modelo usado na redação da newsletter — mantém mais qualidade que o Lite,
+ * com quota gratuita diária historicamente bastante mais generosa que o
+ * gemini-3.6-flash. */
+export const QUALITY_MODEL = "gemini-2.5-flash";
 
 interface AiStructuredOptions {
   model: string;
@@ -55,11 +60,13 @@ export async function callAiStructured<T = unknown>(opts: AiStructuredOptions): 
             responseMimeType: "application/json",
             responseSchema: opts.inputSchema,
             maxOutputTokens: opts.maxTokens ?? 8192,
-            // Os modelos Gemini 3 gastam tokens de "pensamento" interno do MESMO
-            // orçamento que a resposta visível (por defeito num nível alto) —
-            // "low" liberta a esmagadora maioria do orçamento para o JSON em si,
-            // em vez de ser consumido a "pensar".
-            thinkingConfig: { thinkingLevel: "low" },
+            // Modelos Gemini 3 usam thinkingLevel; a série 2.5 usa thinkingBudget
+            // (em tokens). Em qualquer dos casos, o objetivo é minimizar o
+            // "pensamento" interno, que consome o MESMO orçamento de tokens que
+            // a resposta visível.
+            thinkingConfig: opts.model.startsWith("gemini-3")
+              ? { thinkingLevel: "low" }
+              : { thinkingBudget: opts.model.includes("flash-lite") ? 512 : 0 },
           },
         }),
       });

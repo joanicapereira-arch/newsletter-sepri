@@ -523,48 +523,13 @@ Redige a newsletter agregada, desenvolvendo cada atualização com substância r
       }`,
     });
 
-    let finalOutput = output;
-    if (guidance && guidance.trim()) {
-      try {
-        finalOutput = await callAiStructured<{
-          subject?: string;
-          intro?: unknown;
-          items: Record<string, unknown>[];
-        }>({
-          model: MODEL,
-          inputSchema: {
-            type: "object",
-            properties: {
-              subject: { type: "string" },
-              intro: { type: "object" },
-              items: { type: "array", items: { type: "object" }, minItems: 1 },
-            },
-            required: ["items"],
-          },
-          maxTokens: 16000,
-          system: `Vais receber uma newsletter já redigida, em JSON (chaves: subject, intro, items), e uma
-instrução dada pelo utilizador. A tua ÚNICA tarefa é aplicar essa instrução ao conteúdo e
-devolver o MESMO objeto JSON, com a mesma estrutura e chaves, alterado apenas onde a
-instrução pedir. Não apagues nem esvazies secções ou guidelines que a instrução não
-mencione — mantém tudo o resto exatamente igual, incluindo o nível de detalhe e comprimento.
-Se a instrução pedir um título específico, usa-o literalmente no campo "title" do(s) item(ns)
-relevante(s) — e também em "subject" e em "intro.title" se existirem. Se pedir um tom, foco,
-comprimento ou estrutura diferente, reescreve o conteúdo necessário para cumprir isso, sem
-inventar factos novos.`,
-          prompt: `Instrução do utilizador a cumprir exatamente:
-"""
-${guidance.trim()}
-"""
-
-Newsletter atual (JSON):
-${JSON.stringify(output)}
-
-Devolve o JSON revisto, com a instrução aplicada.`,
-        });
-      } catch (err) {
-        console.error("[newsletter-ai] falha ao aplicar orientação, mantém versão original:", err);
-      }
-    }
+    // Nota: a orientação do utilizador já vai incluída no início do prompt de
+    // sistema da chamada principal (acima). Uma segunda chamada de "revisão"
+    // dedicada foi removida — com a quota gratuita do Gemini tão limitada,
+    // duplicar chamadas por newsletter esgotava a quota facilmente, o que
+    // fazia a orientação parecer sempre ignorada (a chamada de revisão
+    // falhava por falta de quota e caía silenciosamente na versão original).
+    const finalOutput = output;
 
     const normalized = finalOutput.items.map((raw) => normalizeLooseItem(raw));
     const hasSubstance = (it: NewsletterItemContent) =>
