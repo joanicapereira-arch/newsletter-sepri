@@ -372,6 +372,17 @@ function extractTitleOverride(guidance?: string): string | null {
   return null;
 }
 
+/** Trunca um título de forma sensata: limite bem mais folgado, corta na
+ * última palavra completa (nunca a meio de uma palavra), e só acrescenta
+ * reticências quando realmente corta algo. */
+function truncateTitle(s: string, max = 140): string {
+  const trimmed = s.trim();
+  if (trimmed.length <= max) return trimmed;
+  const cut = trimmed.slice(0, max);
+  const lastSpace = cut.lastIndexOf(" ");
+  return `${(lastSpace > 40 ? cut.slice(0, lastSpace) : cut).trim()}…`;
+}
+
 function fallbackItemContent(d: DetectionInput, fullText?: string | null): NewsletterItemContent {
   const candidate = fullText && fullText.length > d.summary.length ? fullText : d.summary;
   const source = cleanArticleMarkdown(candidate); // defesa extra: nunca deixar sintaxe markdown passar
@@ -451,7 +462,7 @@ Redige a newsletter completa seguindo a estrutura visual SEPRI. Não te limites 
 export async function generateNewsletterHtml(d: DetectionInput, chrome: ChromeInput) {
   const fullText = await fetchFullArticleText(d.source_url);
   const result = await generateItemContent(d, fullText);
-  const subject = result?.subject ?? d.title.slice(0, 80);
+  const subject = result?.subject ?? truncateTitle(d.title);
   const content = result?.content ?? fallbackItemContent(d, fullText);
 
   const doc: NewsletterDocument = { subject, items: [content] };
@@ -469,7 +480,7 @@ export async function generateCombinedNewsletterHtml(
 ) {
   const fullTexts = await Promise.all(items.map((it) => fetchFullArticleText(it.source_url)));
 
-  let subject = items.length === 1 ? items[0].title.slice(0, 80) : "Atualizações SEPRI";
+  let subject = items.length === 1 ? truncateTitle(items[0].title) : "Atualizações SEPRI";
   let intro: NewsletterDocument["composite_intro"] | undefined;
   let enrichedItems: NewsletterItemContent[];
 
@@ -489,8 +500,15 @@ export async function generateCombinedNewsletterHtml(
         type: "object",
         properties: {
           subject: { type: "string" },
-          intro: { type: "object" },
-          items: { type: "array", items: { type: "object" }, minItems: 1 },
+          intro: {
+            type: "object",
+            properties: {
+              overtitle: { type: "string" },
+              title: { type: "string" },
+              lead: { type: "string" },
+            },
+          },
+          items: { type: "array", items: ITEM_CONTENT_JSON_SCHEMA, minItems: 1 },
         },
         required: ["items"],
       },
@@ -558,7 +576,7 @@ Redige a newsletter agregada, desenvolvendo cada atualização com substância r
 
   const titleOverride = extractTitleOverride(guidance);
   if (titleOverride) {
-    subject = titleOverride.slice(0, 80);
+    subject = truncateTitle(titleOverride);
     if (intro) intro = { ...intro, title: titleOverride };
     if (enrichedItems[0]) enrichedItems[0] = { ...enrichedItems[0], title: titleOverride };
   }
