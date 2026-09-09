@@ -138,13 +138,6 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${PAGE_BG};border-collapse:collapse;">
   <tr><td align="center">
     <table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" style="width:640px;max-width:640px;background:#ffffff;border-collapse:collapse;">
-      <!-- LOGO -->
-      <tr><td style="padding:32px 20px 24px;text-align:center;background:#ffffff;">
-        ${chrome.logoUrl
-          ? `<img src="${esc(chrome.logoUrl)}" alt="SEPRI Group" width="168" height="42" style="height:42px;width:168px;max-height:42px;display:inline-block;border:0;outline:none;" />`
-          : `<div style="font-weight:900;font-size:20px;color:${NAVY};letter-spacing:1px;">sepri <span style="font-size:11px;color:${TURQ};font-weight:600;">Group</span></div>`}
-      </td></tr>
-
       <!-- HERO (fundo de ponta a ponta) -->
       <tr><td style="background:${NAVY};padding:28px 0;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
