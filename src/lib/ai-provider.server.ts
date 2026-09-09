@@ -55,6 +55,11 @@ export async function callAiStructured<T = unknown>(opts: AiStructuredOptions): 
             responseMimeType: "application/json",
             responseSchema: opts.inputSchema,
             maxOutputTokens: opts.maxTokens ?? 8192,
+            // Os modelos Gemini 3 gastam tokens de "pensamento" interno do MESMO
+            // orçamento que a resposta visível (por defeito num nível alto) —
+            // "low" liberta a esmagadora maioria do orçamento para o JSON em si,
+            // em vez de ser consumido a "pensar".
+            thinkingConfig: { thinkingLevel: "low" },
           },
         }),
       });
