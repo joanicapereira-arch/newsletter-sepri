@@ -449,7 +449,7 @@ export async function generateCombinedNewsletterHtml(
 
   const guidanceBlock =
     guidance && guidance.trim()
-      ? `\n\nORIENTAÇÃO ESPECÍFICA DADA PELO UTILIZADOR PARA ESTA NEWSLETTER (segue-a de perto, tem prioridade sobre as convenções por defeito quando houver conflito, mas nunca inventes factos que ela não sustente):\n"""\n${guidance.trim()}\n"""`
+      ? `INSTRUÇÃO DO UTILIZADOR PARA ESTA NEWSLETTER — CUMPRE-A EXATAMENTE, MESMO QUE CONTRARIE AS CONVENÇÕES ABAIXO (só não a sigas se pedir para inventar factos que a fonte não sustente):\n"""\n${guidance.trim()}\n"""\nSe esta instrução pedir um título específico, usa-o literalmente como título H1 principal (e como "subject"). Se pedir um tom, estrutura, foco ou comprimento específico, aplica-o em toda a newsletter.\n\n---\n\n`
       : "";
 
   try {
@@ -469,7 +469,7 @@ export async function generateCombinedNewsletterHtml(
         required: ["items"],
       },
       maxTokens: 8192,
-      system: `${SYSTEM_BASE}
+      system: `${guidanceBlock}${SYSTEM_BASE}
 
 Vais redigir UMA newsletter que agrega várias atualizações. Devolve SEMPRE um único objeto
 JSON com as chaves "subject", "intro" (objeto com overtitle opcional, title, lead) e "items"
@@ -477,7 +477,7 @@ JSON com as chaves "subject", "intro" (objeto com overtitle opcional, title, lea
 intro_paragraphs (array de strings), sections (array com heading, icon, paragraphs, bullets),
 guidelines (heading, intro, items), closing_paragraph, cta (label, url).
 Mantém a ordem original das atualizações. Usa sempre o texto completo do artigo fornecido
-para cada atualização, quando disponível.${guidanceBlock}`,
+para cada atualização, quando disponível.`,
       prompt: `Atualizações a incluir (pela ordem):
 ${items
   .map(
@@ -490,11 +490,17 @@ Resumo curto: ${d.summary}${d.source_url ? `\nURL: ${d.source_url}` : ""}${
   )
   .join("\n\n")}
 
-Redige a newsletter agregada, desenvolvendo cada atualização com substância real.`,
+Redige a newsletter agregada, desenvolvendo cada atualização com substância real.${
+        guidance && guidance.trim()
+          ? `\n\nLEMBRETE — instrução do utilizador a cumprir exatamente: "${guidance.trim()}"`
+          : ""
+      }`,
     });
 
     const normalized = output.items.map((raw) => normalizeLooseItem(raw));
-    if (normalized.every((it) => it.sections.length === 0)) throw new Error("conteúdo insuficiente");
+    const hasSubstance = (it: NewsletterItemContent) =>
+      it.sections.length > 0 || it.intro_paragraphs.some((p) => p.length > 40);
+    if (normalized.every((it) => !hasSubstance(it))) throw new Error("conteúdo insuficiente");
 
     subject = output.subject?.trim() || subject;
     intro = normalizeLooseIntro(output.intro, items);
