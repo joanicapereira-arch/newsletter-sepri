@@ -97,7 +97,11 @@ export function renderNewsletterHtml(doc: NewsletterDocument, chrome: Newsletter
     ? doc.items.map(renderCompositeItem).join("\n")
     : renderItemBody(doc.items[0]);
 
-  const finalCta = doc.cta ?? (!isComposite ? doc.items[0]?.cta : undefined);
+  const DEFAULT_CTA: NewsletterCta = {
+    label: "SOLICITE UMA AVALIAÇÃO PERSONALIZADA",
+    url: "https://www.sepri.pt/contactos",
+  };
+  const finalCta = doc.cta ?? (!isComposite ? doc.items[0]?.cta : undefined) ?? DEFAULT_CTA;
   const highlightRows = doc.items
     .map((it) => it.resource)
     .filter((r): r is NewsletterResource => !!r)

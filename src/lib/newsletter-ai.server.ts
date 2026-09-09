@@ -497,13 +497,55 @@ Redige a newsletter agregada, desenvolvendo cada atualização com substância r
       }`,
     });
 
-    const normalized = output.items.map((raw) => normalizeLooseItem(raw));
+    let finalOutput = output;
+    if (guidance && guidance.trim()) {
+      try {
+        finalOutput = await callAiStructured<{
+          subject?: string;
+          intro?: unknown;
+          items: Record<string, unknown>[];
+        }>({
+          model: MODEL,
+          inputSchema: {
+            type: "object",
+            properties: {
+              subject: { type: "string" },
+              intro: { type: "object" },
+              items: { type: "array", items: { type: "object" }, minItems: 1 },
+            },
+            required: ["items"],
+          },
+          maxTokens: 8192,
+          system: `Vais receber uma newsletter já redigida, em JSON (chaves: subject, intro, items), e uma
+instrução dada pelo utilizador. A tua ÚNICA tarefa é aplicar essa instrução ao conteúdo e
+devolver o MESMO objeto JSON, com a mesma estrutura e chaves, alterado apenas onde a
+instrução pedir. Não apagues nem esvazies secções, guidelines ou cta que a instrução não
+mencione — mantém tudo o resto exatamente igual. Se a instrução pedir um título específico,
+usa-o literalmente no campo "title" do(s) item(ns) relevante(s) — e também em "subject" e em
+"intro.title" se existirem. Se pedir um tom, foco, comprimento ou estrutura diferente,
+reescreve o conteúdo necessário para cumprir isso, sem inventar factos novos.`,
+          prompt: `Instrução do utilizador a cumprir exatamente:
+"""
+${guidance.trim()}
+"""
+
+Newsletter atual (JSON):
+${JSON.stringify(output)}
+
+Devolve o JSON revisto, com a instrução aplicada.`,
+        });
+      } catch (err) {
+        console.error("[newsletter-ai] falha ao aplicar orientação, mantém versão original:", err);
+      }
+    }
+
+    const normalized = finalOutput.items.map((raw) => normalizeLooseItem(raw));
     const hasSubstance = (it: NewsletterItemContent) =>
       it.sections.length > 0 || it.intro_paragraphs.some((p) => p.length > 40);
     if (normalized.every((it) => !hasSubstance(it))) throw new Error("conteúdo insuficiente");
 
-    subject = output.subject?.trim() || subject;
-    intro = normalizeLooseIntro(output.intro, items);
+    subject = finalOutput.subject?.trim() || subject;
+    intro = normalizeLooseIntro(finalOutput.intro, items);
     enrichedItems = normalized.map((it, idx) => ({
       ...it,
       source_name: items[idx]?.source_name,
