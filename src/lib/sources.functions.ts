@@ -54,7 +54,18 @@ export const getConfig = createServerFn({ method: "GET" }).handler(async () => {
 const ConfigInput = z.object({
   logo_url: z.string().url(),
   disclaimer_html: z.string(),
-  alert_email: z.string().email(),
+  alert_email: z
+    .string()
+    .trim()
+    .min(3)
+    .max(1000)
+    .refine(
+      (v) => {
+        const list = v.split(/[,;\s]+/).filter(Boolean);
+        return list.length > 0 && list.every((e) => z.string().email().safeParse(e).success);
+      },
+      { message: "Emails inválidos — separe por vírgulas." },
+    ),
   scan_window_days: z.coerce.number().int().min(1).max(365),
 });
 
