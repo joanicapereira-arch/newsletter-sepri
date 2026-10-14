@@ -81,14 +81,15 @@ function ConfigPage() {
             />
           </div>
           <div>
-            <Label>Email de alertas</Label>
+            <Label>Emails de alertas</Label>
             <Input
-              type="email"
+              type="text"
+              placeholder="email1@exemplo.pt, email2@exemplo.pt"
               value={form.alert_email}
               onChange={(e) => setForm({ ...form, alert_email: e.target.value })}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Recebe os alertas de novas deteções com botões de aprovar/rejeitar.
+              Pode indicar vários emails separados por vírgula. Recebem os alertas de novas deteções com botões de aprovar/rejeitar.
             </p>
           </div>
           <div className="flex items-center gap-2">
