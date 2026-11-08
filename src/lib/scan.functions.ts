@@ -35,7 +35,7 @@ function renderExamples(ex: LearningExamples): string {
 
 async function scanOneSource(
   source: SourceRow,
-  knownHashes: Set<string>,
+  known: import("./dedupe.server").KnownDetections,
   examples: LearningExamples,
   windowDays: number,
 ) {
@@ -168,6 +168,7 @@ Extrai novidades relevantes dos últimos ${windowDays} dias, cada uma com a sua 
   await Promise.all(
     items.map(async (item) => {
       if (item.published_at || !item.source_url) return;
+      if (known.isDuplicate(item.source_url, item.title)) return;
       try {
         const { firecrawlScrape } = await import("./web-scraper.server");
         const page = await firecrawlScrape(item.source_url, 150, 6000);
@@ -195,7 +196,9 @@ Extrai novidades relevantes dos últimos ${windowDays} dias, cada uma com a sua 
       .update(`${source.id}:${item.title.toLowerCase().trim()}`)
       .digest("hex")
       .slice(0, 32);
-    if (knownHashes.has(hash)) continue;
+    if (known.hashes.has(hash) || known.isDuplicate(finalUrl, item.title)) continue;
+    // reserva antes do insert: fontes em paralelo não duplicam a mesma notícia
+    known.add(finalUrl, item.title, hash);
     const { error } = await admin.from("detections").insert({
       source_id: source.id,
       source_name: source.name,
@@ -208,7 +211,8 @@ Extrai novidades relevantes dos últimos ${windowDays} dias, cada uma com a sua 
     });
     if (!error) {
       created++;
-      knownHashes.add(hash);
+    } else {
+      console.error("[scan] insert falhou:", error.message);
     }
   }
   return { created, dropped, error: null };
@@ -249,10 +253,8 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
     .from("sources")
     .select("id,name,url,description,keywords")
     .eq("active", true);
-  const { data: known } = await admin
-    .from("detections")
-    .select("content_hash");
-  const knownHashes = new Set((known ?? []).map((r) => r.content_hash));
+  const { loadKnownDetections } = await import("./dedupe.server");
+  const known = await loadKnownDetections(admin);
 
   const { data: config } = await admin
     .from("app_config")
@@ -286,7 +288,7 @@ export async function runScan(origin: string, triggeredBy: "cron" | "manual") {
   let scanned = 0;
   const results = await mapWithConcurrency((sources ?? []) as SourceRow[], SOURCE_CONCURRENCY, async (src) => {
     try {
-      const res = await scanOneSource(src, knownHashes, examples, windowDays);
+      const res = await scanOneSource(src, known, examples, windowDays);
       return { ok: true as const, created: res.created };
     } catch (e) {
       return { ok: false as const, source: src.name, error: String((e as Error).message ?? e) };

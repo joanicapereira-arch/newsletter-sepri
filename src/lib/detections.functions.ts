@@ -75,12 +75,9 @@ export const addManualDetection = createServerFn({ method: "POST" })
       throw new Error("Fonte inválida.");
     }
 
-    const { data: existing } = await admin
-      .from("detections")
-      .select("id")
-      .eq("source_url", data.url)
-      .limit(1);
-    if (existing && existing.length > 0) {
+    const { loadKnownDetections } = await import("./dedupe.server");
+    const known = await loadKnownDetections(admin);
+    if (known.isDuplicate(data.url, "")) {
       throw new Error("Essa notícia já existe na caixa de entrada.");
     }
 
@@ -89,6 +86,10 @@ export const addManualDetection = createServerFn({ method: "POST" })
       name: source.name,
       keywords: source.keywords ?? [],
     });
+
+    if (known.isDuplicate(data.url, article.title)) {
+      throw new Error("Essa notícia já existe na caixa de entrada.");
+    }
 
     const { createHash } = await import("crypto");
     const hash = createHash("sha256")
